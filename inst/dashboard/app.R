@@ -11,17 +11,21 @@ ui <- dashboardPage(
       div(style = "padding: 15px;",
           textInput("group_id", "Zotero Group ID", value = ""),
           passwordInput("api_key", "API Key", value = ""),
-          textInput("search_q", "Keyword Search (Optional)", value = ""),
 
-          # Step 1: Base Fetch
-          actionButton("fetch_btn", "1. Fetch Base Library", class = "btn-primary w-100"),
+          # Step 0: Scan Folders Initializer
+          actionButton("scan_btn", "0. Scan Folders", class = "btn-info w-100"),
           br(), br(),
 
-          # Step 2: Conditional Abstract Enrichment
-          uiOutput("enrich_ui_container"),
+          # Step 0 Select Box Container (Hidden until Scan completes)
+          uiOutput("folder_select_container"),
+
+          # Step 1 Container (Hidden until folders are picked/loaded)
+          uiOutput("fetch_ui_container"),
           br(),
 
-          # Step 3: Citation Metrics Enrichment
+          # Step 2 & 3 Containers (Hidden until library data exists)
+          uiOutput("enrich_ui_container"),
+          br(),
           uiOutput("citation_ui_container"),
 
           hr(),
@@ -40,111 +44,131 @@ ui <- dashboardPage(
 
 server <- function(input, output, session) {
 
-  # Reactive variable that stays NULL until Zotero download is done
-  current_dataset <- reactiveVal(NULL)
+  # Reactive tracking vectors
+  available_folders <- reactiveVal(NULL)
+  current_dataset   <- reactiveVal(NULL)
 
-  # 1. Automated startup via URL parameters
-  observe({
-    query <- getQueryString()
-    if (!is.null(query$group) && !is.null(query$key)) {
-      updateTextInput(session, "group_id", value = query$group)
-      updatePasswordInput(session, "api_key", value = query$key)
-      if (!is.null(query$q)) updateTextInput(session, "search_q", value = query$q)
+  # --- STEP 0: SCAN COLLECTIONS ---
+  observeEvent(input$scan_btn, {
+    req(input$group_id, input$api_key)
 
-      click("fetch_btn")
-    }
+    withProgress(message = 'Scanning group folders...', value = 0.5, {
+      folders <- biblioview::fetch_zotero_collections(input$group_id, input$api_key)
+
+      if (length(folders) == 0) {
+        showNotification("No sub-folders found or invalid credentials. Showing root library by default.", type = "warning")
+        available_folders(c("All Folders (Root)" = "ROOT"))
+      } else {
+        available_folders(folders)
+      }
+    })
   })
 
-  # 2. STEP 1: Fetch Base Data
+  # Dynamic Dropdown: Populates when folder keys are loaded
+  output$folder_select_container <- renderUI({
+    folders <- available_folders()
+    if (is.null(folders)) return(NULL)
+
+    tagList(
+      selectizeInput("selected_folders", "Target Folders (Leave blank for all)",
+                     choices = folders, multiple = TRUE,
+                     options = list(placeholder = 'Select one or more folders')),
+      textInput("search_q", "Keyword Search (Optional)", value = ""),
+      br()
+    )
+  })
+
+  # --- STEP 1: DYNAMIC PRIMARY FETCH TRIGGER ---
+  output$fetch_ui_container <- renderUI({
+    if (is.null(available_folders())) return(NULL)
+    actionButton("fetch_btn", "1. Fetch Selected Library", class = "btn-primary w-100")
+  })
+
+  # STEP 1 EXECUTION (Updated to pass the vector directly)
   observeEvent(input$fetch_btn, {
     req(input$group_id, input$api_key)
 
-    withProgress(message = 'Fetching from Zotero...', value = 0.5, {
-      raw <- fetch_all_zotero_data(group_id = input$group_id, api_key = input$api_key)
+    withProgress(message = 'Retrieving reference entries...', value = 0.5, {
+
+      # If "ROOT" fallback is selected, pass NULL to pull the whole library
+      folder_arg <- input$selected_folders
+      if ("ROOT" %in% folder_arg) folder_arg <- NULL
+
+      # Single clean call using native pipes
+      raw <- fetch_all_zotero_data(
+        group_id      = input$group_id,
+        api_key       = input$api_key,
+        collection_id = folder_arg
+      )
 
       if (input$search_q != "") {
-        raw <- raw |> filter(
-          grepl(input$search_q, title, ignore.case = TRUE)
-        )
+        raw <- raw |> filter(grepl(input$search_q, title, ignore.case = TRUE))
       }
 
       current_dataset(raw)
     })
   })
 
-  # 3. Dynamic UI for Step 2: Checks if data exists
+  # --- STEP 2 & 3: DYNAMIC CONFIGURATION OVERLAYS ---
   output$enrich_ui_container <- renderUI({
-    df <- current_dataset()
-    if (is.null(df)) return(NULL)
-
+    if (is.null(current_dataset())) return(NULL)
     actionButton("enrich_btn", "2. Run Abstract Enrichment", class = "btn-warning w-100")
   })
 
-  # 4. Dynamic UI for Step 3: Unlocks alongside Step 2 when data is ready
   output$citation_ui_container <- renderUI({
-    df <- current_dataset()
-    if (is.null(df)) return(NULL)
-
+    if (is.null(current_dataset())) return(NULL)
     actionButton("citation_btn", "3. Fetch Citation Metrics", class = "btn-success w-100")
   })
 
-  # 5. STEP 2 EXECUTION: Abstract Enrichment Loop
+  # STEP 2 EXECUTION: Abstract Fill Loop
   observeEvent(input$enrich_btn, {
     df <- current_dataset()
     req(df)
-
-    withProgress(message = 'Enriching missing library abstracts...', value = 0.5, {
+    withProgress(message = 'Filling missing abstract data...', value = 0.5, {
       df <- enrich_missing_abstracts(df)
       current_dataset(df)
     })
   })
 
-  # 6. STEP 3 EXECUTION: Fast Batch Citation Retrieval
+  # STEP 3 EXECUTION: Batch Citations
   observeEvent(input$citation_btn, {
     df <- current_dataset()
     req(df)
-
-    withProgress(message = 'Querying OpenAlex API for citation metrics...', value = 0.5, {
-      # Calls your newly created package function using the POLITE_EMAIL env variable
+    withProgress(message = 'Retrieving OpenAlex metrics...', value = 0.5, {
       df <- biblioview::fetch_citation_counts(df)
       current_dataset(df)
     })
   })
 
-  # 7. Output Table View with Custom Length Menus
+  # --- DATA OUTPUT & INTERFACE GENERATION ---
   output$bib_table <- renderDT({
     df <- current_dataset()
     req(df)
 
     datatable(
       biblioview::format_hyperlinks(df),
-      escape = FALSE, # Permits browser to parse HTML anchors securely
+      escape = FALSE,
       extensions = 'Buttons',
       options = list(
-        dom = 'Blfrtip',  # Includes 'l' to toggle page layout items dynamically
+        dom = 'Blfrtip',
         buttons = c('copy', 'csv', 'excel'),
-        pageLength = 15,  # Default starting row layout view
-        lengthMenu = list(
-          c(10, 15, 20, 50, 100, 200, -1),
-          c('10', '15', '20', '50', '100', '200', 'All')
-        )
+        pageLength = 15,
+        lengthMenu = list(c(10, 15, 20, 50, 100, 200, -1), c('10', '15', '20', '50', '100', '200', 'All'))
       )
     )
   })
 
-  # 8. Sidebar Confirmation text block mapping
   output$status_text <- renderText({
     df <- current_dataset()
-    if (is.null(df)) return("Ready to connect.")
-
-    status_msg <- paste0("Loaded ", nrow(df), " entries successfully.")
-
-    # Check if citations were appended to give the user active context
-    if ("citations" %in% names(df)) {
-      valid_counts <- sum(!is.na(df$citations))
-      status_msg <- paste0(status_msg, " (Citations mapped for ", valid_counts, " items).")
+    if (is.null(df)) {
+      if (is.null(available_folders())) return("Ready to scan library configuration.")
+      return("Folders mapped. Ready to fetch records.")
     }
 
+    status_msg <- paste0("Loaded ", nrow(df), " entries successfully.")
+    if ("citations" %in% names(df)) {
+      status_msg <- paste0(status_msg, " (Citations mapped for ", sum(!is.na(df$citations)), " items).")
+    }
     return(status_msg)
   })
 }

@@ -4,23 +4,30 @@
 \alias{fetch_all_zotero_data}
 \title{Fetch All Data from a Zotero Group Library}
 \usage{
-fetch_all_zotero_data(group_id, api_key)
+fetch_all_zotero_data(group_id, api_key, collection_id = NULL)
 }
 \arguments{
 \item{group_id}{Character or numeric. The target Zotero Group ID.}
 
 \item{api_key}{Character. Your secret Zotero Web API v3 key.}
+
+\item{collection_id}{Optional character vector. Unique Zotero collection keys (hashes)
+to pull down. If \code{NULL} (default), all collections in the library are processed.}
 }
 \value{
 A data frame containing structured reference data with columns:
 Sub_Collection, Authors, Year, Title, DOI, APA_Citation, and Abstract.
 }
 \description{
-Loops through all collections in a specified Zotero group library, retrieves
+Loops through specified or all collections in a Zotero group library, retrieves
 their items, formats them into a tabular structure, and appends the collection name.
 }
 \examples{
 \dontrun{
+# Fetch everything
 fetch_all_zotero_data(group_id = "1234567", api_key = "secret_key")
+
+# Fetch only a specific folder subset
+fetch_all_zotero_data(group_id = "1234567", api_key = "secret_key", collection_id = "A8F3X2Z9")
 }
 }
