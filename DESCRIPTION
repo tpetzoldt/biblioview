@@ -1,17 +1,17 @@
 Package: biblioview
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
+Title: A Shiny Web Portal and Abstract Enricher for Zotero Libraries
+Version: 0.1.0
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Thomas", "Petzoldt", , "thomas.petzoldt@tu-dresden.de", role = c("aut", "cre"))
+Description: Provides automated pipelines to fetch Zotero group libraries, 
+    generate APA citations, and harvest missing abstracts from 
+    external metadata APIs (Crossref, OpenAlex, and Europe PMC).
+License: GPL >= 2
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 8.0.0
-URL: https://github.com/tpetzoldt/biblioview
-BugReports: https://github.com/tpetzoldt/biblioview/issues
 Imports: 
     dplyr,
     httr,
-    jsonlite
+    jsonlite,
+    purrr
+Config/roxygen2/version: 8.0.0

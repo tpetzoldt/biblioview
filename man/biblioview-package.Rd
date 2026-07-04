@@ -4,24 +4,16 @@
 \name{biblioview-package}
 \alias{biblioview}
 \alias{biblioview-package}
-\title{biblioview: What the Package Does (One Line, Title Case)}
+\title{biblioview: A Shiny Web Portal and Abstract Enricher for Zotero Libraries}
 \description{
-What the package does (one paragraph).
-}
-\seealso{
-Useful links:
-\itemize{
-  \item \url{https://github.com/tpetzoldt/biblioview}
-  \item Report bugs at \url{https://github.com/tpetzoldt/biblioview/issues}
-}
-
+Provides automated pipelines to fetch Zotero group libraries, generate APA citations, and harvest missing abstracts from external metadata APIs (Crossref, OpenAlex, and Europe PMC).
 }
 \author{
-\strong{Maintainer}: First Last \email{first.last@example.com}
+\strong{Maintainer}: Thomas Petzoldt \email{thomas.petzoldt@tu-dresden.de}
 
 Authors:
 \itemize{
-  \item First Last \email{first.last@example.com}
+  \item Thomas Petzoldt \email{thomas.petzoldt@tu-dresden.de}
 }
 
 }

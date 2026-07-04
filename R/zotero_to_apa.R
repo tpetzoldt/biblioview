@@ -1,7 +1,17 @@
+#' Convert Zotero Item Data to APA Citation Format
+#'
+#' Parses a raw Zotero JSON item object, extracts metadata fields safely, clears
+#' malformed DOI formatting, and constructs a standardized APA citation string.
+#'
+#' @param item List. A single raw item element unpacked from the Zotero JSON response.
+#'
+#' @return A single-row data frame with standardized bibliographic columns.
+#' @export
+
 zotero_to_apa <- function(item) {
   d <- item$data
   type <- if(!is.null(d$itemType)) d$itemType else "journalArticle"
-  
+
   # Helper function to guarantee an absolute length of 1 for dataframe building
   safe_field <- function(field, default = "") {
     if (is.null(field) || length(field) == 0) return(default)
@@ -9,7 +19,7 @@ zotero_to_apa <- function(item) {
     if (length(field) > 1) return(paste(unlist(field), collapse = " "))
     return(as.character(field))
   }
-  
+
   # Format Authors safely
   authors_apa <- "Unknown"
   if (!is.null(d$creators) && length(d$creators) > 0) {
@@ -25,28 +35,28 @@ zotero_to_apa <- function(item) {
       return(NULL)
     })
     formatted_creators <- unlist(formatted_creators)
-    
+
     if(length(formatted_creators) > 1) {
-      authors_apa <- paste(paste(head(formatted_creators, -1), collapse = ", "), 
+      authors_apa <- paste(paste(head(formatted_creators, -1), collapse = ", "),
                            tail(formatted_creators, 1), sep = ", & ")
     } else if (length(formatted_creators) == 1) {
       authors_apa <- formatted_creators
     }
   }
-  
+
   # Extract values using the safe_field wrapper to guarantee length = 1
   year     <- if(!is.null(d$date) && length(d$date) > 0) substr(d$date, 1, 4) else "n.d."
   title    <- safe_field(d$title, default = "Untitled")
   abstract <- safe_field(d$abstractNote, default = "")
   doi      <- safe_field(d$DOI, default = "")
   url_link <- safe_field(d$url, default = "")
-  
+
   journal  <- safe_field(d$publicationTitle, default = "")
   volume   <- safe_field(d$volume, default = "")
   issue    <- safe_field(d$issue, default = "")
   pages    <- safe_field(d$pages, default = "")
   pub      <- safe_field(d$publisher, default = "")
-  
+
   source_str <- ""
   if (type == "journalArticle" && journal != "") {
     source_str <- paste0("*", journal, "*")
@@ -56,7 +66,7 @@ zotero_to_apa <- function(item) {
   } else if ((type == "book" || type == "bookSection") && pub != "") {
     source_str <- pub
   }
-  
+
   # 1. Clean the raw DOI field if it contains accidental URL prefixes
   if (doi != "") {
     # Remove everything up to the standard DOI identifier '10.'
@@ -64,10 +74,10 @@ zotero_to_apa <- function(item) {
     # and 'https://doi.org//doi.org/10...' -> '10...'
     doi <- sub("^.*?10\\.", "10.", doi)
   }
-  
+
   # 2. Build uniform hyperlink fallback
   doi_str <- if(doi != "") paste0("https://doi.org/", doi) else url_link
-  
+
   apa_citation <- paste0(authors_apa, " (", year, "). ", title, ". ", source_str)
   if(doi_str != "") apa_citation <- paste0(apa_citation, " ", doi_str)
 
@@ -81,6 +91,6 @@ zotero_to_apa <- function(item) {
     Abstract         = abstract,
     stringsAsFactors = FALSE
   )
-  
+
   return(out)
 }

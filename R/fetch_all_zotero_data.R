@@ -1,3 +1,20 @@
+#' Fetch All Data from a Zotero Group Library
+#'
+#' Loops through all collections in a specified Zotero group library, retrieves
+#' their items, formats them into a tabular structure, and appends the collection name.
+#'
+#' @param group_id Character or numeric. The target Zotero Group ID.
+#' @param api_key Character. Your secret Zotero Web API v3 key.
+#'
+#' @return A data frame containing structured reference data with columns:
+#'   Sub_Collection, Authors, Year, Title, DOI, APA_Citation, and Abstract.
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' fetch_all_zotero_data(group_id = "1234567", api_key = "secret_key")
+#' }
+
 fetch_all_zotero_data <- function(group_id, api_key) {
 
   # 1. Fetch all collections to discover keys and names
