@@ -102,16 +102,26 @@ server <- function(input, output, session) {
     df <- current_dataset()
     req(df)
 
-    datatable(
-      format_hyperlinks(df),
-      escape = FALSE, # Permits browser to parse HTML anchors securely
-      extensions = 'Buttons',
-      options = list(
-        dom = 'Bfrtip',
-        buttons = c('copy', 'csv', 'excel'),
-        pageLength = 15
+    # 5. Output Table View with Custom Length Menus
+    output$bib_table <- renderDT({
+      df <- current_dataset()
+      req(df)
+
+      datatable(
+        biblioview::format_hyperlinks(df),
+        escape = FALSE,
+        extensions = 'Buttons',
+        options = list(
+          dom = 'Blfrtip',  # Added 'l' into the DOM layout string to display the length selection dropdown menu
+          buttons = c('copy', 'csv', 'excel'),
+          pageLength = 15,  # Default starting value
+          lengthMenu = list(
+            c(10, 15, 20, 50, 100, 200, -1), # Internal row values (-1 tells DT to show 'All' rows)
+            c('10', '15', '20', '50', '100', '200', 'All') # Labels displayed in the UI dropdown selector
+          )
+        )
       )
-    )
+    })
   })
 
   # 6. Sidebar Confirmation message string mapping
