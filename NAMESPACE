@@ -3,6 +3,7 @@
 export(enrich_missing_abstracts)
 export(fetch_all_zotero_data)
 export(fetch_collection_items)
+export(format_hyperlinks)
 export(launch_dashboard)
 export(zotero_to_apa)
 importFrom(dplyr,bind_rows)
