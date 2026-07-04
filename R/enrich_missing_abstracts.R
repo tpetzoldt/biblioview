@@ -97,7 +97,7 @@ enrich_missing_abstracts <- function(df, email_contact = Sys.getenv("POLITE_EMAI
         message("  -> Could not locate abstract in any metadata repository.")
       }
 
-      Sys.sleep(0.5) # Polite API cooldown pacing
+      Sys.sleep(0.2) # Polite API cooldown pacing
     }
   }
 
