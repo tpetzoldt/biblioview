@@ -4,14 +4,14 @@
 [![R-CMD-check](https://github.com/tpetzoldt/biblioview/workflows/R-CMD-check/badge.svg)](https://github.com/tpetzoldt/biblioview/actions)
 <!-- badges: end -->
 
-`{biblioview}` is an R package and interactive Shiny dashboard designed to streamline, enrich, and explore literature libraries directly from Zotero Group Libraries. It implements a resource-polite, multi-pass optimization pipeline to pull base metadata, resolve missing abstracts, and track live citation metrics.
+`{biblioview}` is an R package and interactive Shiny dashboard designed to streamline, enrich, and explore literature libraries directly from Zotero Group Libraries. It implements a resource-polite, multi-pass  pipeline to pull base metadata, resolve missing abstracts, and track live citation metrics.
 
 ## Key Features
 
 *   **Step 0: Selective Collection Mapping:** Scan and select specific non-hierarchical sub-folders within your Zotero group library before pulling data down.
-*   **Dual-Source Abstract Enrichment:** Automatically checks Crossref and OpenAlex via a resource-efficient fallback loop to patch missing abstract text.
-*   **Batch Citation Metrics:** Mass-queries the OpenAlex API in unified chunks of up to 50 items at once, populating up-to-date citation counts in less than a second.
-*   **Smart Sorting Architecture:** Missing citation metrics are dynamically flagged with a negative marker (`-1`), ensuring incomplete data gracefully stacks at the bottom of your searchable database tables during high-to-low ranking queries.
+*   **Dual-Source Abstract Enrichment:** Automatically checks Crossref and OpenAlex via a fallback loop to patch missing abstract text.
+*   **Batch Citation Metrics:** Mass-queries the OpenAlex API in unified chunks of up to 50 items at once, populating up-to-date citation counts.
+*   **Sorting Architecture:** Missing citation metrics are dynamically flagged with a negative marker (`-1`), ensuring incomplete data  stacks at the bottom of your searchable database tables during high-to-low ranking queries.
 
 ---
 
