@@ -11,3 +11,7 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 8.0.0
 URL: https://github.com/tpetzoldt/biblioview
 BugReports: https://github.com/tpetzoldt/biblioview/issues
+Imports: 
+    dplyr,
+    httr,
+    jsonlite
