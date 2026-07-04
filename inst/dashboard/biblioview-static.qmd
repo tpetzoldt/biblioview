@@ -1,0 +1,103 @@
+---
+title: "Biblioview Portal"
+format: 
+  dashboard:
+    orientation: rows
+    theme: cosmo
+    nav-buttons: [github]
+    github: https://github.com/tpetzoldt/biblioview
+project:
+  output-dir: "docs"
+---
+
+```{r}
+#| context: setup
+#| include: false
+library(biblioview)
+library(dplyr)
+library(DT)
+
+group_id <- "6605132"
+api_key  <- Sys.getenv("ZOTERO_KEY")
+
+raw_data <- fetch_all_zotero_data(group_id = group_id, api_key = api_key)
+bib_data <- enrich_missing_abstracts(raw_data)
+```
+
+# Primary Library
+
+## Sidebar {.sidebar}
+
+### Filter Settings
+Welcome to the project portal. Use the main navigation bar to switch libraries, and the global search block within the tables to perform real-time keyword lookups across titles, DOIs, and abstracts.
+
+***
+
+**Quick Export Actions:**
+Use the copy/paste or file download controls attached directly to the active database view below.
+
+## Row {height="100%"}
+
+### Tabset {.tabset}
+
+```{r}
+#| html: true
+callback_js <- JS(
+  "table.on('click', 'td.details-control', function() {",
+  "  var tr = $(this).closest('tr');",
+  "  var row = table.row(tr);",
+  "  if (row.child.isShown()) {",
+  "    row.child.hide();",
+  "    tr.removeClass('shown');",
+  "  } else {",
+  "    row.child(format(row.data())).show();",
+  "    tr.addClass('shown');",
+  "  }",
+  "});",
+  "function format(d) {",
+  "  return '<div style=\"padding:15px; background-color:#f9f9f9; border-left:4px solid #0275d8;\">' +",
+  "         '<strong>APA Citation:</strong><p>' + d[5] + '</p>' +",
+  "         '<strong>Abstract:</strong><p>' + (d[6] ? d[6] : '<em>No abstract available.</em>') + '</p>' +",
+  "         '</div>';",
+  "}"
+)
+```
+
+#### All Collections
+
+```{r}
+datatable(
+  bib_data |> select(Sub_Collection, Authors, Year, Title, DOI, APA_Citation, Abstract),
+  extensions = 'Buttons',
+  options = list(
+    dom = 'Bfrtip',
+    buttons = c('copy', 'csv', 'excel'),
+    pageLength = 15,
+    columnDefs = list(
+      list(targets = c(5, 6), visible = FALSE)
+    )
+  ),
+  callback = callback_js,
+  escape = FALSE
+)
+```
+
+#### Sub-Collection Alpha
+
+```{r}
+alpha_data <- bib_data |> filter(Sub_Collection == "Alpha")
+
+datatable(
+  alpha_data,
+  extensions = 'Buttons',
+  options = list(dom = 'Bfrtip', buttons = c('copy', 'csv'), pageLength=10)
+)
+```
+
+# Secondary Group Library
+
+## Row
+
+### Alternative Group View
+If your package expands to handle a completely separate Zotero Group ID down the road, it can be seamlessly assigned to this secondary page block by rendering a separate data frame object.
+---

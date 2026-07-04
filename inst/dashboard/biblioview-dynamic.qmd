@@ -1,0 +1,199 @@
+---
+title: "Biblioview Dynamic Portal"
+format: 
+  html:
+    theme: cosmo
+    toc: false
+    page-layout: full
+---
+
+```{r}
+#| context: setup
+#| include: false
+# We load DT to bundle the required JavaScript/CSS assets into the final HTML file
+library(DT)
+```
+
+<div class="container-fluid" style="margin-top: 20px;">
+  <!-- Setup / Configuration Panel -->
+  <div id="config-panel" class="card bg-light mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Connect to Zotero Library</h5>
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">Zotero Group ID</label>
+          <input type="text" id="zotero-group" class="form-control" placeholder="e.g., 6536329">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">API Key (Read Access)</label>
+          <input type="password" id="zotero-key" class="form-control" placeholder="Zotero API Key">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Filter Keyword (Optional)</label>
+          <input type="text" id="zotero-search" class="form-control" placeholder="e.g., abstract keyword">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button id="fetch-btn" class="btn btn-primary w-100" onclick="triggerManualFetch()">Fetch Library</button>
+        </div>
+      </div>
+      <div id="status-message" class="text-muted mt-2 small"></div>
+    </div>
+  </div>
+
+  <!-- Main Output Table Area -->
+  <div class="card">
+    <div class="card-body">
+      <table id="bib-table" class="table table-striped table-bordered" style="width:100%">
+        <thead>
+          <tr>
+            <th>Collection</th>
+            <th>Authors</th>
+            <th>Year</th>
+            <th>Title</th>
+            <th>DOI / Link</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Load DataTables Dependencies directly from CDN inside the static page -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+
+<script>
+let dataTableInstance = null;
+
+$(document).ready(function() {
+  // Initialize an empty DataTable with export tools on load
+  dataTableInstance = $('#bib-table').DataTable({
+    dom: 'Bfrtip',
+    buttons: ['copy', 'csv', 'excel'],
+    pageLength: 15,
+    columns: [
+      { data: 'collection' },
+      { data: 'authors' },
+      { data: 'year' },
+      { data: 'title' },
+      { data: 'doi' }
+    ]
+  });
+
+  // Check URL arguments for automatic processing
+  const urlParams = new URLSearchParams(window.location.search);
+  const group = urlParams.get('group');
+  const key = urlParams.get('key');
+  const searchQ = urlParams.get('q');
+
+  if (group && key) {
+    $('#zotero-group').val(group);
+    $('#zotero-key').val(key);
+    if (searchQ) $('#zotero-search').val(searchQ);
+    
+    // Hide the configuration form panel to provide a clean dashboard dashboard look
+    $('#config-panel').hide();
+    fetchZoteroData(group, key, searchQ);
+  }
+});
+
+function triggerManualFetch() {
+  const group = $('#zotero-group').val().trim();
+  const key = $('#zotero-key').val().trim();
+  const searchQ = $('#zotero-search').val().trim();
+  
+  if (!group || !key) {
+    alert('Please enter both a Group ID and an API Key.');
+    return;
+  }
+  fetchZoteroData(group, key, searchQ);
+}
+
+function fetchZoteroData(group, key, keyword) {
+  $('#status-message').text('Connecting to Zotero API and retrieving items...');
+  
+  // Build Zotero API query endpoint string. 
+  // We limit down to specific fields to reduce network payloads.
+  let url = `https://api.zotero.org/groups/${group}/items?v=3&format=json&include=data`;
+  if (keyword) {
+    url += `&q=${encodeURIComponent(keyword)}`;
+  }
+
+  fetch(url, {
+    headers: {
+      'Zotero-API-Key': key
+    }
+  })
+  .then(response => {
+    if (!response.ok) throw new Error('API Authorization failed or group not found.');
+    return response.json();
+  })
+  .then(items => {
+    const parsedRows = [];
+    
+    // Process the raw items using the exact same logical rules from your R package
+    items.forEach(item => {
+      const d = item.data;
+      if (!d || d.itemType === 'attachment' || d.itemType === 'note') return;
+
+      // Extract year
+      let year = 'n.d.';
+      if (d.date) {
+        const match = d.date.match(/\d{4}/);
+        if (match) year = match[0];
+      }
+
+      // Replicate the exact R-Package Author mapping behavior
+      let authorsStr = 'Unknown';
+      if (d.creators && d.creators.length > 0) {
+        const names = d.creators.map(c => {
+          if (c.lastName) return c.lastName;
+          if (c.name) return c.name;
+          return null;
+        }).filter(Boolean);
+
+        if (names.length === 1) {
+          authorsStr = names[0];
+        } else if (names.length === 2) {
+          authorsStr = names.join(' & ');
+        } else if (names.length > 2) {
+          authorsStr = names.slice(0, -1).join(', ') + ', & ' + names[names.length - 1];
+        }
+      }
+
+      // Replicate DOI / URL link string mapping
+      let doiVal = d.DOI ? d.DOI : '';
+      if (doiVal.includes('10.')) {
+        doiVal = '10.' + doiVal.split('10.')[1];
+      }
+      const finalLink = doiVal ? `https://doi.org/${doiVal}` : (d.url ? d.url : '');
+      const linkMarkup = finalLink ? `<a href="${finalLink}" target="_blank">${doiVal ? doiVal : 'Link'}</a>` : '';
+
+      parsedRows.push({
+        collection: d.collections && d.collections.length > 0 ? 'Assigned' : 'Root',
+        authors: authorsStr,
+        year: year,
+        title: d.title || 'Untitled',
+        doi: linkMarkup
+      });
+    });
+
+    // Wipe the table view clean and replace with the parsed elements instantly
+    dataTableInstance.clear().rows.add(parsedRows).draw();
+    $('#status-message').text(`Successfully processed ${parsedRows.length} publication records.`);
+  })
+  .catch(err => {
+    $('#status-message').html(`<span class="text-danger">Error: ${err.message}</span>`);
+    $('#config-panel').show(); // Show login panels back up if automated pipeline hits wall
+  });
+}
+</script>
+```
