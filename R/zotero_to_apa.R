@@ -7,7 +7,6 @@
 #'
 #' @return A single-row data frame with standardized bibliographic columns.
 #' @export
-
 zotero_to_apa <- function(item) {
   d <- item$data
   type <- if(!is.null(d$itemType)) d$itemType else "journalArticle"
@@ -24,16 +23,22 @@ zotero_to_apa <- function(item) {
   authors_apa <- "Unknown"
   if (!is.null(d$creators) && length(d$creators) > 0) {
     formatted_creators <- sapply(d$creators, function(c) {
-      if (!is.null(c$lastName) && length(c$lastName) > 0) {
+      if (!is.null(c$lastName) && length(c$lastName) > 0 && c$lastName != "") {
+        # Standard individual: Last Name, Initials
         if (!is.null(c$firstName) && length(c$firstName) > 0 && c$firstName != "") {
           initials <- paste0(substr(strsplit(as.character(c$firstName), " ")[[1]], 1, 1), ".", collapse = " ")
           return(paste0(c$lastName, ", ", initials))
         } else {
           return(as.character(c$lastName))
         }
+      } else if (!is.null(c$name) && length(c$name) > 0 && c$name != "") {
+        # Institutional / Corporate author (e.g., R Core Team)
+        return(as.character(c$name))
       }
       return(NULL)
     })
+
+    # Filter out any NULL elements before working with the vector
     formatted_creators <- unlist(formatted_creators)
 
     if(length(formatted_creators) > 1) {
@@ -69,9 +74,6 @@ zotero_to_apa <- function(item) {
 
   # 1. Clean the raw DOI field if it contains accidental URL prefixes
   if (doi != "") {
-    # Remove everything up to the standard DOI identifier '10.'
-    # This fixes 'https://doi.org/https://doi.org/10...' -> '10...'
-    # and 'https://doi.org//doi.org/10...' -> '10...'
     doi <- sub("^.*?10\\.", "10.", doi)
   }
 
@@ -86,7 +88,7 @@ zotero_to_apa <- function(item) {
     Authors          = safe_field(authors_apa, "Unknown"),
     Year             = safe_field(year, "n.d."),
     Title            = title,
-    DOI              = doi_str, # dynamically holds DOI or URL fallback
+    DOI              = doi_str,
     APA_Citation     = safe_field(apa_citation, "Untitled Reference"),
     Abstract         = abstract,
     stringsAsFactors = FALSE

@@ -48,7 +48,17 @@ fetch_all_zotero_data <- function(group_id, api_key) {
   if (length(master_list) > 0) {
     final_df <- bind_rows(master_list) |>
       select(Sub_Collection, Authors, Year, Title, DOI, APA_Citation, Abstract)
-    return(final_df)
+
+    # 1. Separate items with a valid DOI from those without
+    has_doi  <- final_df |> dplyr::filter(!is.na(DOI) & DOI != "" & DOI != "NA")
+    no_doi   <- final_df |> dplyr::filter(is.na(DOI) | DOI == "" | DOI == "NA")
+
+    # 2. Only deduplicate the rows that have a DOI
+    deduped_doi <- has_doi |> distinct(DOI, .keep_all = TRUE)
+
+    # 3. Combine them back together
+    return(bind_rows(deduped_doi, no_doi))
+
   } else {
     return(data.frame())
   }
