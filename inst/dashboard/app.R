@@ -13,12 +13,16 @@ ui <- dashboardPage(
           passwordInput("api_key", "API Key", value = ""),
           textInput("search_q", "Keyword Search (Optional)", value = ""),
 
-          # Step 1
+          # Step 1: Base Fetch
           actionButton("fetch_btn", "1. Fetch Base Library", class = "btn-primary w-100"),
           br(), br(),
 
-          # Step 2 (Controlled cleanly by conditional rendering)
+          # Step 2: Conditional Abstract Enrichment
           uiOutput("enrich_ui_container"),
+          br(),
+
+          # Step 3: Citation Metrics Enrichment
+          uiOutput("citation_ui_container"),
 
           hr(),
           textOutput("status_text")
@@ -47,7 +51,6 @@ server <- function(input, output, session) {
       updatePasswordInput(session, "api_key", value = query$key)
       if (!is.null(query$q)) updateTextInput(session, "search_q", value = query$q)
 
-      # Using click execution
       click("fetch_btn")
     }
   })
@@ -65,70 +68,84 @@ server <- function(input, output, session) {
         )
       }
 
-      # Download is officially complete here
       current_dataset(raw)
     })
   })
 
-  # 3. Dynamic UI component: Simply checks if data exists!
+  # 3. Dynamic UI for Step 2: Checks if data exists
   output$enrich_ui_container <- renderUI({
     df <- current_dataset()
+    if (is.null(df)) return(NULL)
 
-    # If download isn't complete, show nothing
-    if (is.null(df)) {
-      return(helpText("Fetch data to enable enrichment options."))
-    }
-
-    # If download is complete, enable Step 2 button instantly
     actionButton("enrich_btn", "2. Run Abstract Enrichment", class = "btn-warning w-100")
   })
 
-  # 4. STEP 2: Enrichment Execution Loop
+  # 4. Dynamic UI for Step 3: Unlocks alongside Step 2 when data is ready
+  output$citation_ui_container <- renderUI({
+    df <- current_dataset()
+    if (is.null(df)) return(NULL)
+
+    actionButton("citation_btn", "3. Fetch Citation Metrics", class = "btn-success w-100")
+  })
+
+  # 5. STEP 2 EXECUTION: Abstract Enrichment Loop
   observeEvent(input$enrich_btn, {
     df <- current_dataset()
     req(df)
-    total_rows <- nrow(df)
 
-    withProgress(message = 'Enriching library datasets...', value = 0, {
-      # Pass the full table or process row by row depending on your package setup
-      # If your function handles the entire data frame at once:
+    withProgress(message = 'Enriching missing library abstracts...', value = 0.5, {
       df <- enrich_missing_abstracts(df)
       current_dataset(df)
     })
   })
 
-  # 5. Output Table View
+  # 6. STEP 3 EXECUTION: Fast Batch Citation Retrieval
+  observeEvent(input$citation_btn, {
+    df <- current_dataset()
+    req(df)
+
+    withProgress(message = 'Querying OpenAlex API for citation metrics...', value = 0.5, {
+      # Calls your newly created package function using the POLITE_EMAIL env variable
+      df <- biblioview::fetch_citation_counts(df)
+      current_dataset(df)
+    })
+  })
+
+  # 7. Output Table View with Custom Length Menus
   output$bib_table <- renderDT({
     df <- current_dataset()
     req(df)
 
-    # 5. Output Table View with Custom Length Menus
-    output$bib_table <- renderDT({
-      df <- current_dataset()
-      req(df)
-
-      datatable(
-        biblioview::format_hyperlinks(df),
-        escape = FALSE,
-        extensions = 'Buttons',
-        options = list(
-          dom = 'Blfrtip',  # Added 'l' into the DOM layout string to display the length selection dropdown menu
-          buttons = c('copy', 'csv', 'excel'),
-          pageLength = 15,  # Default starting value
-          lengthMenu = list(
-            c(10, 15, 20, 50, 100, 200, -1), # Internal row values (-1 tells DT to show 'All' rows)
-            c('10', '15', '20', '50', '100', '200', 'All') # Labels displayed in the UI dropdown selector
-          )
+    datatable(
+      biblioview::format_hyperlinks(df),
+      escape = FALSE, # Permits browser to parse HTML anchors securely
+      extensions = 'Buttons',
+      options = list(
+        dom = 'Blfrtip',  # Includes 'l' to toggle page layout items dynamically
+        buttons = c('copy', 'csv', 'excel'),
+        pageLength = 15,  # Default starting row layout view
+        lengthMenu = list(
+          c(10, 15, 20, 50, 100, 200, -1),
+          c('10', '15', '20', '50', '100', '200', 'All')
         )
       )
-    })
+    )
   })
 
-  # 6. Sidebar Confirmation message string mapping
+  # 8. Sidebar Confirmation text block mapping
   output$status_text <- renderText({
     df <- current_dataset()
     if (is.null(df)) return("Ready to connect.")
-    paste0("Loaded ", nrow(df), " entries successfully.")
+
+    status_msg <- paste0("Loaded ", nrow(df), " entries successfully.")
+
+    # Check if citations were appended to give the user active context
+    if ("citations" %in% names(df)) {
+      valid_counts <- sum(!is.na(df$citations))
+      status_msg <- paste0(status_msg, " (Citations mapped for ", valid_counts, " items).")
+    }
+
+    return(status_msg)
   })
 }
 
