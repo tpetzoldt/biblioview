@@ -283,7 +283,8 @@ server <- function(input, output, session) {
     datatable(
       biblioview::format_hyperlinks(df),
       escape = FALSE,
-      extensions = 'Buttons',
+      filter = "top", # Activates the individual column search boxes
+      extensions = c('Buttons', 'SearchBuilder'),
       options = list(
         dom = 'Blfrtip',
         # Expanded from a simple vector into a detailed configuration list
