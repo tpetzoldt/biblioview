@@ -4,9 +4,9 @@ library(dplyr)
 library(DT)
 
 ui <- dashboardPage(
-  title = "Biblioview Portal",
+  title = "Biblioview Portal", # <-- Sets the default HTML metadata title for the browser tab
   dashboardHeader(
-    title = uiOutput("dynamic_title"),
+    title = uiOutput("dynamic_title"), # <-- Dynamically renders the project name upper left
     titleWidth = 350
   ),
   dashboardSidebar(
@@ -33,6 +33,7 @@ ui <- dashboardPage(
           hr(),
 
           # Dynamic API Politeness Input Panel
+          # Only displays after initial setup is verified to avoid cluttering the login
           uiOutput("polite_email_container"),
 
           htmlOutput("status_text")
@@ -40,6 +41,7 @@ ui <- dashboardPage(
       # Lower persistent acknowledgement block
       div(class = "sidebar-acknowledgments",
           hr(style = "border-color: #4b646f; margin-bottom: 10px;"),
+          # Changed from p() to div() with explicit wrapping rules to guarantee text folds correctly
           div("Powered by open scholarly infrastructure. Data retrieved and enriched via standard APIs from:",
               style = "font-size: 0.85em; color: #8a979e; margin-bottom: 5px; white-space: normal; word-wrap: break-word; line-height: 1.3;"),
           tags$ul(style = "font-size: 0.85em; color: #b8c7ce; padding-left: 15px; margin-bottom: 10px;",
@@ -72,21 +74,27 @@ ui <- dashboardPage(
   dashboardBody(
     tags$head(
       tags$style(HTML("
+        /* --- Existing Table and Helper Text Styles --- */
         .dataTable tbody td {
           vertical-align: top !important;
         }
+        /* Style adjustments for the small helper text under the email input */
         .help-block-polite {
           font-size: 0.85em;
           color: #b8c7ce;
           margin-top: 5px;
           line-height: 1.3;
         }
+
+        /* --- Sidebar Width Overrides (Expanded State) --- */
         .main-sidebar {
           width: 300px !important;
         }
         .content-wrapper, .main-footer, .right-side {
           margin-left: 300px !important;
         }
+
+        /* --- Sidebar Collapsed State Fixes (Burger Menu Clicked) --- */
         .sidebar-collapse .main-sidebar {
           transform: translate(-300px, 0) !important;
         }
@@ -96,6 +104,8 @@ ui <- dashboardPage(
         .sidebar-collapse .main-header .navbar {
           margin-left: 0px !important;
         }
+
+        /* Smooth out layout shifting transitions */
         .main-sidebar, .content-wrapper, .main-footer, .right-side, .main-header .navbar {
           transition: transform 0.25s ease-in-out, margin-left 0.25s ease-in-out !important;
         }
@@ -129,9 +139,11 @@ server <- function(input, output, session) {
         available_folders(c("All Folders (Root)" = "ROOT"))
       } else {
         # --- ALPHABETICAL SORTING ENGINE ---
+        # Sorts the named vector by its names (the human-readable titles)
         if (!is.null(names(folders))) {
           sorted_folders <- folders[order(names(folders))]
         } else {
+          # Fallback if it's just a regular unnamed vector of strings
           sorted_folders <- sort(folders)
         }
         available_folders(sorted_folders)
@@ -141,16 +153,20 @@ server <- function(input, output, session) {
 
   # --- UNIFIED LAUNCH PARAMETER HANDSHAKE ---
   observe({
+    # 1. Capture URL query strings (Primary for Shiny Server deployments)
     query <- parseQueryString(session$clientData$url_search)
 
+    # 2. Capture R global options (Primary for local launch_dashboard() function)
     opt_group <- getOption("biblioview.group", default = "")
     opt_key   <- getOption("biblioview.key",   default = "")
     opt_title <- getOption("biblioview.title", default = "")
 
+    # 3. Resolve prioritization: URL parameters take precedence over function arguments
     final_group <- if (!is.null(query$group)) query$group else opt_group
     final_key   <- if (!is.null(query$key))   query$key   else opt_key
     final_title <- if (!is.null(query$title)) query$title else opt_title
 
+    # 4. If credentials exist via either method, execute the scan instantly
     if (final_group != "" && final_key != "") {
       isolate({
         updateTextInput(session, "group_id", value = final_group)
@@ -225,6 +241,7 @@ server <- function(input, output, session) {
 
     tagList(
       textInput("polite_email", "API Contact Email (Optional)", value = default_email),
+      # Added explicit wrapping rules directly onto the list element
       tags$ul(class = "help-block-polite",
               style = "padding-left: 15px; margin-top: 5px; white-space: normal; word-wrap: break-word; line-height: 1.3;",
               tags$li("Providing a valid email address is polite open-access etiquette."),
@@ -239,16 +256,21 @@ server <- function(input, output, session) {
     df <- current_dataset()
     req(df)
 
+    # 1. Pull the raw UI string (or default to empty if the UI component isn't rendered yet)
     ui_email <- if (!is.null(input$polite_email)) trimws(input$polite_email) else ""
+
+    # 2. Fallback cascade: Use UI string if filled; otherwise drop back to system environment
     user_email <- if (ui_email != "") ui_email else Sys.getenv("POLITE_EMAIL")
 
     withProgress(message = 'Retrieving OpenAlex metrics...', value = 0.5, {
+      # Passes the safely resolved email down into the package logic
       df <- biblioview::fetch_citation_counts(df, email = user_email)
       current_dataset(df)
     })
   })
 
   # --- STEP 3 EXECUTION: MODAL INTERCEPT & ABSTRACT ENRICHMENT ---
+  # Intercept the primary click to spawn the safety dialog box layout
   observeEvent(input$enrich_btn, {
     req(current_dataset())
 
@@ -266,8 +288,9 @@ server <- function(input, output, session) {
     ))
   })
 
+  # Actual execution trigger linked inside the modal confirmation action handle
   observeEvent(input$confirm_enrich_btn, {
-    removeModal()
+    removeModal() # Clear the overlay box away immediately
     df <- current_dataset()
     req(df)
 
@@ -285,9 +308,13 @@ server <- function(input, output, session) {
     export_title <- if (app_title() != "") app_title() else "export"
     clean_filename <- gsub("[^a-zA-Z0-9_-]", "_", export_title)
 
+    # 1. Format the data first so we use the exact structure sent to DT
     formatted_df <- biblioview::format_hyperlinks(df)
+
+    # 2. Find the index safely on the formatted data (case-insensitive)
     abstract_col_idx <- which(tolower(names(formatted_df)) == "abstract") - 1
 
+    # 3. Apply standard substring clipping if the column index exists
     col_definitions <- list()
     if (length(abstract_col_idx) > 0 && !is.na(abstract_col_idx)) {
       col_definitions <- list(
