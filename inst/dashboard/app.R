@@ -10,12 +10,14 @@ ui <- dashboardPage(
     titleWidth = 350
   ),
   dashboardSidebar(
+    width = 300, # Widened sidebar to fit labels beautifully
     sidebarMenu(
       div(style = "padding: 15px;",
           textInput("group_id", "Zotero Group ID", value = ""),
           passwordInput("api_key", "API Key", value = ""),
 
-          actionButton("scan_btn", "0. Scan Folders", class = "btn-info w-100"),
+          # Step 0: Scan Folders (Unified style & full width)
+          actionButton("scan_btn", "0. Scan Folders", class = "btn-warning w-100"),
           br(), br(),
 
           uiOutput("folder_select_container"),
@@ -23,9 +25,10 @@ ui <- dashboardPage(
           uiOutput("fetch_ui_container"),
           br(),
 
-          uiOutput("enrich_ui_container"),
-          br(),
+          # Steps 1 and 2 flipped in order here
           uiOutput("citation_ui_container"),
+          br(),
+          uiOutput("enrich_ui_container"),
 
           hr(),
           htmlOutput("status_text")
@@ -38,6 +41,9 @@ ui <- dashboardPage(
         .dataTable tbody td {
           vertical-align: top !important;
         }
+        /* Ensures the sidebar width configuration applies properly across the dashboard layout */
+        .main-sidebar { width: 300px !important; }
+        .content-wrapper, .main-footer, .right-side { margin-left: 300px !important; }
       "))
     ),
     fluidRow(
@@ -96,7 +102,7 @@ server <- function(input, output, session) {
     run_folder_scan(input$group_id, input$api_key)
   })
 
-  # Dynamic Dropdown (Cleaned up: search_q input field removed)
+  # Dynamic Dropdown
   output$folder_select_container <- renderUI({
     folders <- available_folders()
     if (is.null(folders)) return(NULL)
@@ -112,7 +118,7 @@ server <- function(input, output, session) {
   # --- STEP 1: FETCH LIBRARY ---
   output$fetch_ui_container <- renderUI({
     if (is.null(available_folders())) return(NULL)
-    actionButton("fetch_btn", "1. Fetch Selected Library", class = "btn-primary w-100")
+    actionButton("fetch_btn", "1. Fetch Selected Library", class = "btn-warning w-100")
   })
 
   observeEvent(input$fetch_btn, {
@@ -128,29 +134,19 @@ server <- function(input, output, session) {
         collection_id = folder_arg
       )
 
-      # Data directly populates current_dataset session memory
       current_dataset(raw)
     })
   })
 
-  # --- STEP 2 & 3: ENRICHMENT OVERLAYS ---
-  output$enrich_ui_container <- renderUI({
-    if (is.null(current_dataset())) return(NULL)
-    actionButton("enrich_btn", "2. Run Abstract Enrichment", class = "btn-warning w-100")
-  })
-
+  # --- STEP 2 & 3: ENRICHMENT OVERLAYS (Flipped Order & Matched Colors) ---
   output$citation_ui_container <- renderUI({
     if (is.null(current_dataset())) return(NULL)
-    actionButton("citation_btn", "3. Fetch Citation Metrics", class = "btn-success w-100")
+    actionButton("citation_btn", "2. Fetch Citation Metrics", class = "btn-warning w-100")
   })
 
-  observeEvent(input$enrich_btn, {
-    df <- current_dataset()
-    req(df)
-    withProgress(message = 'Filling missing abstract data...', value = 0.5, {
-      df <- enrich_missing_abstracts(df)
-      current_dataset(df)
-    })
+  output$enrich_ui_container <- renderUI({
+    if (is.null(current_dataset())) return(NULL)
+    actionButton("enrich_btn", "3. Run Abstract Enrichment", class = "btn-warning w-100")
   })
 
   observeEvent(input$citation_btn, {
@@ -158,6 +154,15 @@ server <- function(input, output, session) {
     req(df)
     withProgress(message = 'Retrieving OpenAlex metrics...', value = 0.5, {
       df <- biblioview::fetch_citation_counts(df)
+      current_dataset(df)
+    })
+  })
+
+  observeEvent(input$enrich_btn, {
+    df <- current_dataset()
+    req(df)
+    withProgress(message = 'Filling missing abstract data...', value = 0.5, {
+      df <- enrich_missing_abstracts(df)
       current_dataset(df)
     })
   })
@@ -190,7 +195,6 @@ server <- function(input, output, session) {
     status_msg <- paste0("Loaded ", nrow(df), " entries successfully.")
 
     if ("citations" %in% names(df)) {
-      # Count rows that are valid matches and NOT our -1 missing flag
       valid_counts <- sum(!is.na(df$citations) & df$citations != -1)
       tagList(
         status_msg,
