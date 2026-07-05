@@ -207,7 +207,23 @@ server <- function(input, output, session) {
           this_name <- level_nodes$name[i]
 
           # Create a prefix using regular text dashes (e.g., "- Subfolder" or "-- Grandchild")
-          prefix <- if (depth > 0) paste0(paste0(rep("-", depth), collapse = ""), "\u00a0") else ""
+          prefix <- if (depth > 0) {
+            # Creates a modern "└─ " or "  └─ " nesting marker
+            indent <- paste0(rep("\u00a0\u00a0", depth - 1), collapse = "")
+            paste0(indent, "\u2514\u2500\u00a0")
+          } else {
+            ""
+          }
+
+          # Alternative: Open circle prefix
+          # prefix <- if (depth > 0) {
+          #   indent <- paste0(rep("\u00a0\u00a0", depth), collapse = "")
+          #   paste0(indent, "\u25e6\u00a0")
+          # } else {
+          #   ""
+          # }
+
+
           display_label <- paste0(prefix, this_name)
 
           # Store the item (UI display text = hidden API hash key value)
