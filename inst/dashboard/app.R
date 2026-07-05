@@ -10,13 +10,13 @@ ui <- dashboardPage(
     titleWidth = 350
   ),
   dashboardSidebar(
-    width = 300, # Widened sidebar to fit labels beautifully
+    width = 300,
     sidebarMenu(
       div(style = "padding: 15px;",
           textInput("group_id", "Zotero Group ID", value = ""),
           passwordInput("api_key", "API Key", value = ""),
 
-          # Step 0: Scan Folders (Unified style & full width)
+          # Step 0: Scan Folders
           actionButton("scan_btn", "0. Scan Folders", class = "btn-warning w-100"),
           br(), br(),
 
@@ -25,13 +25,49 @@ ui <- dashboardPage(
           uiOutput("fetch_ui_container"),
           br(),
 
-          # Steps 1 and 2 flipped in order here
+          # Steps 1 and 2
           uiOutput("citation_ui_container"),
           br(),
           uiOutput("enrich_ui_container"),
 
           hr(),
+
+          # Dynamic API Politeness Input Panel
+          # Only displays after initial setup is verified to avoid cluttering the login
+          uiOutput("polite_email_container"),
+
           htmlOutput("status_text")
+      ),
+      # Lower persistent acknowledgement block
+      div(class = "sidebar-acknowledgments",
+          hr(style = "border-color: #4b646f; margin-bottom: 10px;"),
+          # Changed from p() to div() with explicit wrapping rules to guarantee text folds correctly
+          div("Powered by open scholarly infrastructure. Data retrieved and enriched via standard APIs from:",
+              style = "font-size: 0.85em; color: #8a979e; margin-bottom: 5px; white-space: normal; word-wrap: break-word; line-height: 1.3;"),
+          tags$ul(style = "font-size: 0.85em; color: #b8c7ce; padding-left: 15px; margin-bottom: 10px;",
+                  tags$li(
+                    tags$a(href = "https://www.zotero.org", target = "_blank", "Zotero", style = "color: #b8c7ce; text-decoration: underline;"),
+                    " (Group Libraries)"
+                  ),
+                  tags$li(
+                    tags$a(href = "https://www.crossref.org", target = "_blank", "Crossref", style = "color: #b8c7ce; text-decoration: underline;"),
+                    " (Metadata & Abstracts)"
+                  ),
+                  tags$li(
+                    tags$a(href = "https://openalex.org", target = "_blank", "OpenAlex", style = "color: #b8c7ce; text-decoration: underline;"),
+                    " (Abstracts and Citation Metrics)"
+                  ),
+                  tags$li(
+                    tags$a(href = "https://europepmc.org", target = "_blank", "Europe PMC", style = "color: #b8c7ce; text-decoration: underline;"),
+                    " (Open Life Science Index)"
+                  )
+          ),
+          div(style = "font-size: 0.8em; color: #8a979e; display: flex; justify-content: space-between; padding: 0 5px;",
+              span(paste("v0.1.0 |", format(Sys.Date(), "%Y-%m-%d"))),
+              tags$a(href = "https://github.com/tpetzoldt/biblioview", target = "_blank",
+                     style ="color: #3d8d8d; text-decoration: underline;",
+                     tags$i(class = "fa fa-github", style = "color: #3d8d8d; text-decoration: underline;"), "https://github.com/tpetzoldt")
+          )
       )
     )
   ),
@@ -41,9 +77,15 @@ ui <- dashboardPage(
         .dataTable tbody td {
           vertical-align: top !important;
         }
-        /* Ensures the sidebar width configuration applies properly across the dashboard layout */
         .main-sidebar { width: 300px !important; }
         .content-wrapper, .main-footer, .right-side { margin-left: 300px !important; }
+        /* Style adjustments for the small helper text under the email input */
+        .help-block-polite {
+          font-size: 0.85em;
+          color: #b8c7ce;
+          margin-top: 5px;
+          line-height: 1.3;
+        }
       "))
     ),
     fluidRow(
@@ -138,7 +180,7 @@ server <- function(input, output, session) {
     })
   })
 
-  # --- STEP 2 & 3: ENRICHMENT OVERLAYS (Flipped Order & Matched Colors) ---
+  # --- DYNAMIC CONTROLS DISPLAY CONTAINER ---
   output$citation_ui_container <- renderUI({
     if (is.null(current_dataset())) return(NULL)
     actionButton("citation_btn", "2. Fetch Citation Metrics", class = "btn-warning w-100")
@@ -149,18 +191,66 @@ server <- function(input, output, session) {
     actionButton("enrich_btn", "3. Run Abstract Enrichment", class = "btn-warning w-100")
   })
 
+  output$polite_email_container <- renderUI({
+    if (is.null(current_dataset())) return(NULL)
+
+    default_email <- Sys.getenv("POLITE_EMAIL")
+
+    tagList(
+      textInput("polite_email", "API Contact Email (Optional)", value = default_email),
+      # Added explicit wrapping rules directly onto the list element
+      tags$ul(class = "help-block-polite",
+              style = "padding-left: 15px; margin-top: 5px; white-space: normal; word-wrap: break-word; line-height: 1.3;",
+              tags$li("Providing a valid email address is polite open-access etiquette."),
+              tags$li("Grants your requests access to the higher-priority OpenAlex Polite Pool.")
+      ),
+      br()
+    )
+  })
+
+  # --- STEP 2 EXECUTION: BATCH CITATIONS
   observeEvent(input$citation_btn, {
     df <- current_dataset()
     req(df)
+
+    # 1. Pull the raw UI string (or default to empty if the UI component isn't rendered yet)
+    ui_email <- if (!is.null(input$polite_email)) trimws(input$polite_email) else ""
+
+    # 2. Fallback cascade: Use UI string if filled; otherwise drop back to system environment
+    user_email <- if (ui_email != "") ui_email else Sys.getenv("POLITE_EMAIL")
+
     withProgress(message = 'Retrieving OpenAlex metrics...', value = 0.5, {
-      df <- biblioview::fetch_citation_counts(df)
+      # Passes the safely resolved email down into the package logic
+      df <- biblioview::fetch_citation_counts(df, email = user_email)
       current_dataset(df)
     })
   })
 
+  # --- STEP 3 EXECUTION: MODAL INTERCEPT & ABSTRACT ENRICHMENT ---
+  # Intercept the primary click to spawn the safety dialog box layout
   observeEvent(input$enrich_btn, {
+    req(current_dataset())
+
+    showModal(modalDialog(
+      title = "Confirm Abstract Enrichment Operation",
+      span("Retrieving missing abstracts systematically queries external metadata endpoints item-by-item. This operational loop takes time and consumes shared server network resources."),
+      br(), br(),
+      strong("Do you really want to proceed with enrichment?"),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("confirm_enrich_btn", "Yes, Proceed", class = "btn-warning")
+      ),
+      size = "m",
+      easyClose = TRUE
+    ))
+  })
+
+  # Actual execution trigger linked inside the modal confirmation action handle
+  observeEvent(input$confirm_enrich_btn, {
+    removeModal() # Clear the overlay box away immediately
     df <- current_dataset()
     req(df)
+
     withProgress(message = 'Filling missing abstract data...', value = 0.5, {
       df <- enrich_missing_abstracts(df)
       current_dataset(df)
@@ -189,7 +279,7 @@ server <- function(input, output, session) {
     df <- current_dataset()
     if (is.null(df)) {
       if (is.null(available_folders())) return("Ready to scan library configuration.")
-      return("Folders mapped. Ready to fetch records.")
+      return("Folders scanned. Ready to fetch library")
     }
 
     status_msg <- paste0("Loaded ", nrow(df), " entries successfully.")
