@@ -39,7 +39,17 @@ ui <- dashboardPage(
     )
   ),
   dashboardBody(
-    useShinyjs(),
+    useShinyjs(), # thpe: maybe redundant
+
+    # Custom CSS to align table cell contents to the top
+    tags$head(
+      tags$style(HTML("
+        .dataTable tbody td {
+          vertical-align: top !important;
+        }
+      "))
+    ),
+
     fluidRow(
       box(width = 12, title = "Searchable Reference Database", solidHeader = TRUE, status = "primary",
           DTOutput("bib_table")
