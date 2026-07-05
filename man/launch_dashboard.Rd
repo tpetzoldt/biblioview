@@ -4,7 +4,14 @@
 \alias{launch_dashboard}
 \title{Launch the Biblioview Dashboard Locally}
 \usage{
-launch_dashboard()
+launch_dashboard(group = NULL, key = NULL, title = NULL)
+}
+\arguments{
+\item{group}{Optional character string containing a default Zotero Group ID.}
+
+\item{key}{Optional character string containing a default Zotero API Key.}
+
+\item{title}{Optional character string to override the default portal header title.}
 }
 \description{
 Launch the Biblioview Dashboard Locally

@@ -120,20 +120,32 @@ server <- function(input, output, session) {
     })
   }
 
-  # --- URL PARAMETER HANDSHAKE ---
+  # --- UNIFIED LAUNCH PARAMETER HANDSHAKE ---
   observe({
+    # 1. Capture URL query strings (Primary for Shiny Server deployments)
     query <- parseQueryString(session$clientData$url_search)
 
-    if (!is.null(query$group) && !is.null(query$key)) {
-      isolate({
-        updateTextInput(session, "group_id", value = query$group)
-        updateTextInput(session, "api_key", value = query$key)
+    # 2. Capture R global options (Primary for local launch_dashboard() function)
+    opt_group <- getOption("biblioview.group", default = "")
+    opt_key   <- getOption("biblioview.key",   default = "")
+    opt_title <- getOption("biblioview.title", default = "")
 
-        if (!is.null(query$title)) {
-          app_title(query$title)
+    # 3. Resolve prioritization: URL parameters take precedence over function arguments
+    final_group <- if (!is.null(query$group)) query$group else opt_group
+    final_key   <- if (!is.null(query$key))   query$key   else opt_key
+    final_title <- if (!is.null(query$title)) query$title else opt_title
+
+    # 4. If credentials exist via either method, execute the scan instantly
+    if (final_group != "" && final_key != "") {
+      isolate({
+        updateTextInput(session, "group_id", value = final_group)
+        updateTextInput(session, "api_key", value = final_key)
+
+        if (final_title != "") {
+          app_title(final_title)
         }
 
-        run_folder_scan(query$group, query$key)
+        run_folder_scan(final_group, final_key)
       })
     }
   })
