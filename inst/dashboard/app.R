@@ -302,7 +302,7 @@ server <- function(input, output, session) {
   # --- STEP 1: FETCH LIBRARY ---
   output$fetch_ui_container <- renderUI({
     if (is.null(available_folders())) return(NULL)
-    actionButton("fetch_btn", "1. Fetch Selected Library", class = "btn-warning w-100")
+    actionButton("fetch_btn", "1. Fetch Selected Folder(s)", class = "btn-warning w-100")
   })
 
   observeEvent(input$fetch_btn, {
@@ -411,7 +411,7 @@ server <- function(input, output, session) {
     formatted_df <- biblioview::format_hyperlinks(df)
 
     # 2. Find the index safely on the formatted data (case-insensitive)
-    abstract_col_idx <- which(tolower(names(formatted_df)) == "abstract") - 1
+    abstract_col_idx <- which(tolower(names(formatted_df)) == "abstract")
 
     # 3. Apply standard substring clipping if the column index exists
     col_definitions <- list()
