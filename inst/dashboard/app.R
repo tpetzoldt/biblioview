@@ -1,4 +1,5 @@
-library(shiny)
+filter = "top", # <-- Activates the individual column search boxes
+      extensions = c('Buttons', 'SearchBuilder'), # <-- Loads both engines0.1(shiny)
 library(shinydashboard)
 library(biblioview)
 library(dplyr)
@@ -63,7 +64,7 @@ ui <- dashboardPage(
                   )
           ),
           div(style = "font-size: 0.8em; color: #8a979e; display: flex; justify-content: space-between; padding: 0 5px;",
-              span(paste("v0.1.0 |", format(Sys.Date(), "%Y-%m-%d"))),
+              span(paste("v0.1.1 |", format(Sys.Date(), "%Y-%m-%d"))),
               tags$a(href = "https://github.com/tpetzoldt/biblioview", target = "_blank",
                      style ="color: #3d8d8d; text-decoration: underline;",
                      tags$i(class = "fa fa-github", style = "color: #3d8d8d; text-decoration: underline;"), "https://github.com/tpetzoldt")
