@@ -9,11 +9,11 @@
 Provides automated pipelines to fetch Zotero group libraries, generate APA citations, and harvest missing abstracts from external metadata APIs (Crossref, OpenAlex, and Europe PMC).
 }
 \author{
-\strong{Maintainer}: Thomas Petzoldt \email{thomas.petzoldt@tu-dresden.de}
+\strong{Maintainer}: Thomas Petzoldt \email{thomas.petzoldt@tu-dresden.de} (\href{https://orcid.org/0000-0002-4951-6468}{ORCID})
 
 Authors:
 \itemize{
-  \item Thomas Petzoldt \email{thomas.petzoldt@tu-dresden.de}
+  \item Thomas Petzoldt \email{thomas.petzoldt@tu-dresden.de} (\href{https://orcid.org/0000-0002-4951-6468}{ORCID})
 }
 
 }

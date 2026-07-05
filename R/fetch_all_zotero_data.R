@@ -5,60 +5,86 @@
 #'
 #' @param group_id Character or numeric. The target Zotero Group ID.
 #' @param api_key Character. Your secret Zotero Web API v3 key.
-#' @param collection_id Optional character vector. Unique Zotero collection keys (hashes) 
+#' @param collection_id Optional character vector. Unique Zotero collection keys (hashes)
 #'   to pull down. If \code{NULL} (default), all collections in the library are processed.
 #'
 #' @return A data frame containing structured reference data with columns:
 #'   Sub_Collection, Authors, Year, Title, DOI, APA_Citation, and Abstract.
 #' @export
-#'
-#' @examples
-#' \dontrun{
-#' # Fetch everything
-#' fetch_all_zotero_data(group_id = "1234567", api_key = "secret_key")
-#' 
-#' # Fetch only a specific folder subset
-#' fetch_all_zotero_data(group_id = "1234567", api_key = "secret_key", collection_id = "A8F3X2Z9")
-#' }
 fetch_all_zotero_data <- function(group_id, api_key, collection_id = NULL) {
 
-  # 1. Fetch collection definitions to map keys back to human-readable names
+  # 1. Fetch ALL collection definitions to build a global relationship map
   coll_url <- paste0("https://api.zotero.org/groups/", group_id, "/collections")
   coll_res <- httr::GET(coll_url, httr::add_headers("Zotero-API-Key" = api_key))
 
   if (httr::status_code(coll_res) != 200) stop("Could not retrieve group collections.")
 
-  collections_raw <- jsonlite::fromJSON(
-    httr::content(coll_res, "text", encoding = "UTF-8"), 
+  # This contains EVERY folder in the library
+  all_collections_in_library <- jsonlite::fromJSON(
+    httr::content(coll_res, "text", encoding = "UTF-8"),
     simplifyVector = FALSE
   )
 
-  # Filter the discovered list if the user requested a specific subset
+  # Determine our execution targets based on what the user selected in the UI
   if (!is.null(collection_id)) {
-    collections_raw <- Filter(function(coll) coll$key %in% collection_id, collections_raw)
+    target_collections <- Filter(function(coll) coll$key %in% collection_id, all_collections_in_library)
+  } else {
+    target_collections <- all_collections_in_library
   }
 
-  if (length(collections_raw) == 0) {
+  if (length(target_collections) == 0) {
     warning("No matching collections found for the provided criteria.")
     return(data.frame())
   }
 
   master_list <- list()
 
-  # 2. Loop over every filtered sub-collection
-  for (coll in collections_raw) {
+  # Keep track of keys we have already physically downloaded across the entire execution
+  # to guarantee a folder is NEVER fetched twice under any circumstance!
+  already_fetched_keys <- c()
+
+  # 2. LINEAR EXECUTION LOOP
+  for (coll in target_collections) {
     coll_name <- coll$data$name
     coll_key  <- coll$key
 
-    message(paste("Processing collection:", coll_name))
+    # Start a collection bucket for this specific folder track
+    target_keys <- coll_key
 
-    # Fetch all items across all pages for this sub-collection
-    coll_data <- fetch_collection_items(group_id, api_key, coll_key)
+    # Find all immediate children using the GLOBAL library map, not the filtered one!
+    child_collections <- Filter(function(x) {
+      is.character(x$data$parentCollection) && x$data$parentCollection == coll_key
+    }, all_collections_in_library)
 
-    if (nrow(coll_data) > 0) {
-      # Append the tracking column requested
-      coll_data$Sub_Collection <- coll_name
-      master_list[[length(master_list) + 1]] <- coll_data
+    # Extract just their text keys
+    if (length(child_collections) > 0) {
+      child_keys <- sapply(child_collections, function(x) x$key)
+      target_keys <- c(target_keys, child_keys)
+    }
+
+    # Clean out internal duplicates within this single folder track
+    target_keys <- unique(target_keys)
+
+    # Strip out any keys that have already been completely downloaded in a previous iteration
+    target_keys <- target_keys[!(target_keys %in% already_fetched_keys)]
+
+    # If all folders in this track were already processed, skip to the next primary collection safely
+    if (length(target_keys) == 0) next
+
+    message(paste("Processing collection umbrella:", coll_name, " (Fetching", length(target_keys), "unprocessed folders)"))
+
+    # Run the flat linear download loop
+    for (key in target_keys) {
+      coll_data <- fetch_collection_items(group_id, api_key, key)
+
+      if (nrow(coll_data) > 0) {
+        # Group everything under the parent's umbrella name for the UI tracking column
+        coll_data$Sub_Collection <- coll_name
+        master_list[[length(master_list) + 1]] <- coll_data
+      }
+
+      # Mark this key as finished globally
+      already_fetched_keys <- c(already_fetched_keys, key)
     }
   }
 

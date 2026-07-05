@@ -22,12 +22,3 @@ Sub_Collection, Authors, Year, Title, DOI, APA_Citation, and Abstract.
 Loops through specified or all collections in a Zotero group library, retrieves
 their items, formats them into a tabular structure, and appends the collection name.
 }
-\examples{
-\dontrun{
-# Fetch everything
-fetch_all_zotero_data(group_id = "1234567", api_key = "secret_key")
-
-# Fetch only a specific folder subset
-fetch_all_zotero_data(group_id = "1234567", api_key = "secret_key", collection_id = "A8F3X2Z9")
-}
-}
