@@ -4,6 +4,7 @@ library(dplyr)
 library(DT)
 
 ui <- dashboardPage(
+  title = "Biblioview Portal",
   dashboardHeader(
     title = uiOutput("dynamic_title"),
     titleWidth = 350
@@ -32,7 +33,6 @@ ui <- dashboardPage(
           hr(),
 
           # Dynamic API Politeness Input Panel
-          # Only displays after initial setup is verified to avoid cluttering the login
           uiOutput("polite_email_container"),
 
           htmlOutput("status_text")
@@ -40,7 +40,6 @@ ui <- dashboardPage(
       # Lower persistent acknowledgement block
       div(class = "sidebar-acknowledgments",
           hr(style = "border-color: #4b646f; margin-bottom: 10px;"),
-          # Changed from p() to div() with explicit wrapping rules to guarantee text folds correctly
           div("Powered by open scholarly infrastructure. Data retrieved and enriched via standard APIs from:",
               style = "font-size: 0.85em; color: #8a979e; margin-bottom: 5px; white-space: normal; word-wrap: break-word; line-height: 1.3;"),
           tags$ul(style = "font-size: 0.85em; color: #b8c7ce; padding-left: 15px; margin-bottom: 10px;",
@@ -76,14 +75,29 @@ ui <- dashboardPage(
         .dataTable tbody td {
           vertical-align: top !important;
         }
-        .main-sidebar { width: 300px !important; }
-        .content-wrapper, .main-footer, .right-side { margin-left: 300px !important; }
-        /* Style adjustments for the small helper text under the email input */
         .help-block-polite {
           font-size: 0.85em;
           color: #b8c7ce;
           margin-top: 5px;
           line-height: 1.3;
+        }
+        .main-sidebar {
+          width: 300px !important;
+        }
+        .content-wrapper, .main-footer, .right-side {
+          margin-left: 300px !important;
+        }
+        .sidebar-collapse .main-sidebar {
+          transform: translate(-300px, 0) !important;
+        }
+        .sidebar-collapse .content-wrapper,
+        .sidebar-collapse .main-footer,
+        .sidebar-collapse .right-side,
+        .sidebar-collapse .main-header .navbar {
+          margin-left: 0px !important;
+        }
+        .main-sidebar, .content-wrapper, .main-footer, .right-side, .main-header .navbar {
+          transition: transform 0.25s ease-in-out, margin-left 0.25s ease-in-out !important;
         }
       "))
     ),
@@ -114,27 +128,29 @@ server <- function(input, output, session) {
         showNotification("No sub-folders found or invalid credentials. Showing root library by default.", type = "warning")
         available_folders(c("All Folders (Root)" = "ROOT"))
       } else {
-        available_folders(folders)
+        # --- ALPHABETICAL SORTING ENGINE ---
+        if (!is.null(names(folders))) {
+          sorted_folders <- folders[order(names(folders))]
+        } else {
+          sorted_folders <- sort(folders)
+        }
+        available_folders(sorted_folders)
       }
     })
   }
 
   # --- UNIFIED LAUNCH PARAMETER HANDSHAKE ---
   observe({
-    # 1. Capture URL query strings (Primary for Shiny Server deployments)
     query <- parseQueryString(session$clientData$url_search)
 
-    # 2. Capture R global options (Primary for local launch_dashboard() function)
     opt_group <- getOption("biblioview.group", default = "")
     opt_key   <- getOption("biblioview.key",   default = "")
     opt_title <- getOption("biblioview.title", default = "")
 
-    # 3. Resolve prioritization: URL parameters take precedence over function arguments
     final_group <- if (!is.null(query$group)) query$group else opt_group
     final_key   <- if (!is.null(query$key))   query$key   else opt_key
     final_title <- if (!is.null(query$title)) query$title else opt_title
 
-    # 4. If credentials exist via either method, execute the scan instantly
     if (final_group != "" && final_key != "") {
       isolate({
         updateTextInput(session, "group_id", value = final_group)
@@ -209,7 +225,6 @@ server <- function(input, output, session) {
 
     tagList(
       textInput("polite_email", "API Contact Email (Optional)", value = default_email),
-      # Added explicit wrapping rules directly onto the list element
       tags$ul(class = "help-block-polite",
               style = "padding-left: 15px; margin-top: 5px; white-space: normal; word-wrap: break-word; line-height: 1.3;",
               tags$li("Providing a valid email address is polite open-access etiquette."),
@@ -219,26 +234,21 @@ server <- function(input, output, session) {
     )
   })
 
-  # --- STEP 2 EXECUTION: BATCH CITATIONS
+  # --- STEP 2 EXECUTION: BATCH CITATIONS ---
   observeEvent(input$citation_btn, {
     df <- current_dataset()
     req(df)
 
-    # 1. Pull the raw UI string (or default to empty if the UI component isn't rendered yet)
     ui_email <- if (!is.null(input$polite_email)) trimws(input$polite_email) else ""
-
-    # 2. Fallback cascade: Use UI string if filled; otherwise drop back to system environment
     user_email <- if (ui_email != "") ui_email else Sys.getenv("POLITE_EMAIL")
 
     withProgress(message = 'Retrieving OpenAlex metrics...', value = 0.5, {
-      # Passes the safely resolved email down into the package logic
       df <- biblioview::fetch_citation_counts(df, email = user_email)
       current_dataset(df)
     })
   })
 
   # --- STEP 3 EXECUTION: MODAL INTERCEPT & ABSTRACT ENRICHMENT ---
-  # Intercept the primary click to spawn the safety dialog box layout
   observeEvent(input$enrich_btn, {
     req(current_dataset())
 
@@ -256,9 +266,8 @@ server <- function(input, output, session) {
     ))
   })
 
-  # Actual execution trigger linked inside the modal confirmation action handle
   observeEvent(input$confirm_enrich_btn, {
-    removeModal() # Clear the overlay box away immediately
+    removeModal()
     df <- current_dataset()
     req(df)
 
@@ -273,42 +282,47 @@ server <- function(input, output, session) {
     df <- current_dataset()
     req(df)
 
-    # 1. Fetch the string from the reactive app_title()
     export_title <- if (app_title() != "") app_title() else "export"
-
-    # 2. Clean the filename string for safe operating system saving
     clean_filename <- gsub("[^a-zA-Z0-9_-]", "_", export_title)
 
+    formatted_df <- biblioview::format_hyperlinks(df)
+    abstract_col_idx <- which(tolower(names(formatted_df)) == "abstract") - 1
+
+    col_definitions <- list()
+    if (length(abstract_col_idx) > 0 && !is.na(abstract_col_idx)) {
+      col_definitions <- list(
+        list(
+          targets = abstract_col_idx,
+          render = JS(
+            "function(data, type, row) {",
+            "  if (type === 'display' && data !== null && data.length > 90) {",
+            "    var cleanText = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
+            "    return '<span title=\"' + cleanText + '\">' + data.substring(0, 90) + '...</span>';",
+            "  }",
+            "  return data;",
+            "}"
+          )
+        )
+      )
+    }
+
     datatable(
-      biblioview::format_hyperlinks(df),
+      formatted_df,
       escape = FALSE,
-      filter = "top", # Activates the individual column search boxes
-      extensions = c('Buttons', 'SearchBuilder'),
+      extensions = 'Buttons',
       options = list(
         dom = 'Blfrtip',
-        # Expanded from a simple vector into a detailed configuration list
         buttons = list(
-          list(
-            extend = 'copy',
-            title = NULL  # Cleans the clipboard cache of the stray header line
-          ),
-          list(
-            extend = 'csv',
-            filename = clean_filename,
-            title = NULL  # Strips out the obsolete 1st HTML line inside the file
-          ),
-          list(
-            extend = 'excel',
-            filename = clean_filename,
-            title = NULL  # Strips out the obsolete 1st HTML line inside the sheet
-          )
+          list(extend = 'copy', title = NULL),
+          list(extend = 'csv', filename = clean_filename, title = NULL),
+          list(extend = 'excel', filename = clean_filename, title = NULL)
         ),
         pageLength = 15,
-        lengthMenu = list(c(10, 15, 20, 50, 100, 200, -1), c('10', '15', '20', '50', '100', '200', 'All'))
+        lengthMenu = list(c(10, 15, 20, 50, 100, 200, -1), c('10', '15', '20', '50', '100', '200', 'All')),
+        columnDefs = col_definitions
       )
     )
   })
-
 
   output$status_text <- renderUI({
     df <- current_dataset()
