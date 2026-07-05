@@ -274,18 +274,41 @@ server <- function(input, output, session) {
     df <- current_dataset()
     req(df)
 
+    # 1. Fetch the string from the reactive app_title()
+    export_title <- if (app_title() != "") app_title() else "export"
+
+    # 2. Clean the filename string for safe operating system saving
+    clean_filename <- gsub("[^a-zA-Z0-9_-]", "_", export_title)
+
     datatable(
       biblioview::format_hyperlinks(df),
       escape = FALSE,
       extensions = 'Buttons',
       options = list(
         dom = 'Blfrtip',
-        buttons = c('copy', 'csv', 'excel'),
+        # Expanded from a simple vector into a detailed configuration list
+        buttons = list(
+          list(
+            extend = 'copy',
+            title = NULL  # Cleans the clipboard cache of the stray header line
+          ),
+          list(
+            extend = 'csv',
+            filename = clean_filename,
+            title = NULL  # Strips out the obsolete 1st HTML line inside the file
+          ),
+          list(
+            extend = 'excel',
+            filename = clean_filename,
+            title = NULL  # Strips out the obsolete 1st HTML line inside the sheet
+          )
+        ),
         pageLength = 15,
         lengthMenu = list(c(10, 15, 20, 50, 100, 200, -1), c('10', '15', '20', '50', '100', '200', 'All'))
       )
     )
   })
+
 
   output$status_text <- renderUI({
     df <- current_dataset()
