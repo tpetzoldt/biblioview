@@ -43,7 +43,7 @@ fetch_all_zotero_data <- function(group_id, api_key, collection_id = NULL) {
   # to guarantee a folder is NEVER fetched twice under any circumstance!
   already_fetched_keys <- c()
 
-  # 2. LINEAR EXECUTION LOOP
+  # 2. LINEAR EXECUTION LOOP WITH DYNAMIC PATH BUILDING
   for (coll in target_collections) {
     coll_name <- coll$data$name
     coll_key  <- coll$key
@@ -51,39 +51,56 @@ fetch_all_zotero_data <- function(group_id, api_key, collection_id = NULL) {
     # Start a collection bucket for this specific folder track
     target_keys <- coll_key
 
-    # Find all immediate children using the GLOBAL library map, not the filtered one!
+    # Find all immediate children using the GLOBAL library map
     child_collections <- Filter(function(x) {
       is.character(x$data$parentCollection) && x$data$parentCollection == coll_key
     }, all_collections_in_library)
 
-    # Extract just their text keys
     if (length(child_collections) > 0) {
       child_keys <- sapply(child_collections, function(x) x$key)
       target_keys <- c(target_keys, child_keys)
     }
 
-    # Clean out internal duplicates within this single folder track
     target_keys <- unique(target_keys)
-
-    # Strip out any keys that have already been completely downloaded in a previous iteration
     target_keys <- target_keys[!(target_keys %in% already_fetched_keys)]
 
-    # If all folders in this track were already processed, skip to the next primary collection safely
     if (length(target_keys) == 0) next
-
-    message(paste("Processing collection umbrella:", coll_name, " (Fetching", length(target_keys), "unprocessed folders)"))
 
     # Run the flat linear download loop
     for (key in target_keys) {
+
+      # --- NEW PATH-BUILDING LOGIC ---
+      # Find the specific folder configuration for the current key
+      current_folder <- Filter(function(x) x$key == key, all_collections_in_library)[[1]]
+      current_name   <- current_folder$data$name
+
+      # Check if this item physically lives inside a child folder
+      if (!is.null(current_folder$data$parentCollection) && current_folder$data$parentCollection != FALSE && current_folder$data$parentCollection != "") {
+        # Fetch the parent's definition block to grab its text name
+        parent_key   <- current_folder$data$parentCollection
+        parent_match <- Filter(function(x) x$key == parent_key, all_collections_in_library)
+
+        if (length(parent_match) > 0) {
+          # Option A: Full Multi-Level Path Display (e.g., "Literature > Methods")
+          display_path <- paste0(parent_match[[1]]$data$name, " > ", current_name)
+        } else {
+          display_path <- current_name
+        }
+      } else {
+        # This is already a root-level top folder
+        display_path <- current_name
+      }
+      # --------------------------------
+
+      message(paste("Processing folder:", display_path))
       coll_data <- fetch_collection_items(group_id, api_key, key)
 
       if (nrow(coll_data) > 0) {
-        # Group everything under the parent's umbrella name for the UI tracking column
-        coll_data$Sub_Collection <- coll_name
+        # Assign the detailed breadcrumb string to your data frame column
+        coll_data$Sub_Collection <- display_path
         master_list[[length(master_list) + 1]] <- coll_data
       }
 
-      # Mark this key as finished globally
       already_fetched_keys <- c(already_fetched_keys, key)
     }
   }
