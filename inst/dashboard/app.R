@@ -1,5 +1,3 @@
-filter = "top", # <-- Activates the individual column search boxes
-      extensions = c('Buttons', 'SearchBuilder'), # <-- Loads both engines0.1(shiny)
 library(shinydashboard)
 library(biblioview)
 library(dplyr)
