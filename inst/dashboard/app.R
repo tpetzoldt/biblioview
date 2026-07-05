@@ -1,11 +1,16 @@
 library(shiny)
+library(shinyjs)
 library(shinydashboard)
 library(biblioview)
 library(dplyr)
 library(DT)
 
 ui <- dashboardPage(
-  dashboardHeader(title = "Biblioview Portal"),
+  dashboardHeader(
+    # Dynamic title output replacing the static string
+    title = uiOutput("dynamic_title"),
+    titleWidth = 350
+  ),
   dashboardSidebar(
     sidebarMenu(
       div(style = "padding: 15px;",
@@ -34,6 +39,7 @@ ui <- dashboardPage(
     )
   ),
   dashboardBody(
+    useShinyjs(),
     fluidRow(
       box(width = 12, title = "Searchable Reference Database", solidHeader = TRUE, status = "primary",
           DTOutput("bib_table")
@@ -48,12 +54,18 @@ server <- function(input, output, session) {
   available_folders <- reactiveVal(NULL)
   current_dataset   <- reactiveVal(NULL)
 
-  # --- STEP 0: SCAN COLLECTIONS ---
-  observeEvent(input$scan_btn, {
-    req(input$group_id, input$api_key)
+  # Initialize the reactive tracker for the dynamic title string
+  app_title <- reactiveVal("Biblioview Portal")
 
+  # Render the dynamic title in the header bar
+  output$dynamic_title <- renderUI({
+    tags$span(app_title())
+  })
+
+  # --- CENTRALIZED SCAN FUNCTION ---
+  run_folder_scan <- function(target_group, target_key) {
     withProgress(message = 'Scanning group folders...', value = 0.5, {
-      folders <- biblioview::fetch_zotero_collections(input$group_id, input$api_key)
+      folders <- biblioview::fetch_zotero_collections(target_group, target_key)
 
       if (length(folders) == 0) {
         showNotification("No sub-folders found or invalid credentials. Showing root library by default.", type = "warning")
@@ -62,6 +74,32 @@ server <- function(input, output, session) {
         available_folders(folders)
       }
     })
+  }
+
+  # --- URL PARAMETER HANDSHAKE (Isolated for Startup Execution) ---
+  observe({
+    query <- parseQueryString(session$clientData$url_search)
+
+    if (!is.null(query$group) && !is.null(query$key)) {
+      # Use isolate() so updating these elements doesn't disrupt the title rendering loop
+      isolate({
+        updateTextInput(session, "group_id", value = query$group)
+        updateTextInput(session, "api_key", value = query$key)
+
+        if (!is.null(query$title)) {
+          app_title(query$title)
+        }
+
+        # Fire the scanning logic directly using parameters straight out of the URL
+        run_folder_scan(query$group, query$key)
+      })
+    }
+  })
+
+  # --- STEP 0: MANUAL SCAN BUTTON ---
+  observeEvent(input$scan_btn, {
+    req(input$group_id, input$api_key)
+    run_folder_scan(input$group_id, input$api_key)
   })
 
   # Dynamic Dropdown: Populates when folder keys are loaded
