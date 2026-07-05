@@ -29,7 +29,7 @@ ui <- dashboardPage(
           uiOutput("citation_ui_container"),
 
           hr(),
-          textOutput("status_text")
+          htmlOutput("status_text")
       )
     )
   ),
@@ -70,7 +70,7 @@ server <- function(input, output, session) {
     if (is.null(folders)) return(NULL)
 
     tagList(
-      selectizeInput("selected_folders", "Target Folders (Leave blank for all)",
+      selectizeInput("selected_folders", "Folders (Leave blank for all)",
                      choices = folders, multiple = TRUE,
                      options = list(placeholder = 'Select one or more folders')),
       textInput("search_q", "Keyword Search (Optional)", value = ""),
@@ -158,7 +158,7 @@ server <- function(input, output, session) {
     )
   })
 
-  output$status_text <- renderText({
+  output$status_text <- renderUI({
     df <- current_dataset()
     if (is.null(df)) {
       if (is.null(available_folders())) return("Ready to scan library configuration.")
@@ -166,10 +166,21 @@ server <- function(input, output, session) {
     }
 
     status_msg <- paste0("Loaded ", nrow(df), " entries successfully.")
+
     if ("citations" %in% names(df)) {
-      status_msg <- paste0(status_msg, " (Citations mapped for ", sum(!is.na(df$citations)), " items).")
+      # Count rows that are valid matches and NOT our -1 missing flag
+      valid_counts <- sum(!is.na(df$citations) & df$citations != -1)
+
+      tagList(
+        status_msg,
+        br(),
+        paste0("Citations mapped for ", valid_counts, " items."),
+        br(),
+        span(style = "font-style: italic;", "-1: no citation count available")
+      )
+    } else {
+      status_msg
     }
-    return(status_msg)
   })
 }
 
