@@ -337,6 +337,7 @@ server <- function(input, output, session) {
       formatted_df,
       escape = FALSE,
       extensions = 'Buttons',
+      filter = "top",
       options = list(
         dom = 'Blfrtip',
         buttons = list(
