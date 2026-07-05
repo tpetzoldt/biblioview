@@ -130,26 +130,108 @@ server <- function(input, output, session) {
   })
 
   # --- CENTRALIZED SCAN FUNCTION ---
-  run_folder_scan <- function(target_group, target_key) {
-    withProgress(message = 'Scanning group folders...', value = 0.5, {
-      folders <- biblioview::fetch_zotero_collections(target_group, target_key)
+  # run_folder_scan <- function(target_group, target_key) {
+  #   withProgress(message = 'Scanning group folders...', value = 0.5, {
+  #     folders <- biblioview::fetch_zotero_collections(target_group, target_key)
+  #
+  #     if (length(folders) == 0) {
+  #       showNotification("No sub-folders found or invalid credentials. Showing root library by default.", type = "warning")
+  #       available_folders(c("All Folders (Root)" = "ROOT"))
+  #     } else {
+  #       # --- ALPHABETICAL SORTING ENGINE ---
+  #       # Sorts the named vector by its names (the human-readable titles)
+  #       if (!is.null(names(folders))) {
+  #         sorted_folders <- folders[order(names(folders))]
+  #       } else {
+  #         # Fallback if it's just a regular unnamed vector of strings
+  #         sorted_folders <- sort(folders)
+  #       }
+  #       available_folders(sorted_folders)
+  #     }
+  #   })
+  # }
 
-      if (length(folders) == 0) {
-        showNotification("No sub-folders found or invalid credentials. Showing root library by default.", type = "warning")
+  # ----------------------------------------------------------------------------
+
+  # --- HIERARCHICAL SIDEBAR SCAN INTERFACE ---
+  run_folder_scan <- function(target_group, target_key) {
+    withProgress(message = 'Mapping folder hierarchy...', value = 0.5, {
+
+      # 1. Fetch the raw metadata definitions directly from the API to read the parent links
+      coll_url <- paste0("https://api.zotero.org/groups/", target_group, "/collections")
+      coll_res <- httr::GET(coll_url, httr::add_headers("Zotero-API-Key" = target_key))
+
+      if (httr::status_code(coll_res) != 200) {
+        showNotification("Could not read hierarchy metadata. Falling back to flat view.", type = "warning")
+        folders <- biblioview::fetch_zotero_collections(target_group, target_key)
+        available_folders(folders[order(names(folders))])
+        return()
+      }
+
+      raw_json <- jsonlite::fromJSON(httr::content(coll_res, "text", encoding = "UTF-8"), simplifyVector = FALSE)
+
+      if (length(raw_json) == 0) {
         available_folders(c("All Folders (Root)" = "ROOT"))
-      } else {
-        # --- ALPHABETICAL SORTING ENGINE ---
-        # Sorts the named vector by its names (the human-readable titles)
-        if (!is.null(names(folders))) {
-          sorted_folders <- folders[order(names(folders))]
+        return()
+      }
+
+      # 2. Build a reliable local relationship table
+      df_tree <- data.frame(
+        key = sapply(raw_json, function(x) x$key),
+        name = sapply(raw_json, function(x) x$data$name),
+        parent = sapply(raw_json, function(x) {
+          p <- x$data$parentCollection
+          if (is.null(p) || is.logical(p) || p == "" || p == "FALSE") NA_character_ else p
+        }),
+        stringsAsFactors = FALSE
+      )
+
+      hierarchical_choices <- c()
+
+      # 3. Recursive Engine: Alphabetize top levels, then recursively print sorted sub-folders
+      build_branch <- function(current_parent = NA, depth = 0) {
+        # Isolate items at this structural depth level
+        if (is.na(current_parent)) {
+          level_nodes <- df_tree[is.na(df_tree$parent), ]
         } else {
-          # Fallback if it's just a regular unnamed vector of strings
-          sorted_folders <- sort(folders)
+          level_nodes <- df_tree[!is.na(df_tree$parent) & df_tree$parent == current_parent, ]
         }
-        available_folders(sorted_folders)
+
+        if (nrow(level_nodes) == 0) return()
+
+        # Sort the current level branches alphabetically by name
+        level_nodes <- level_nodes[order(level_nodes$name), ]
+
+        for (i in seq_len(nrow(level_nodes))) {
+          this_key  <- level_nodes$key[i]
+          this_name <- level_nodes$name[i]
+
+          # Create a prefix using regular text dashes (e.g., "- Subfolder" or "-- Grandchild")
+          prefix <- if (depth > 0) paste0(paste0(rep("-", depth), collapse = ""), "\u00a0") else ""
+          display_label <- paste0(prefix, this_name)
+
+          # Store the item (UI display text = hidden API hash key value)
+          hierarchical_choices <<- c(hierarchical_choices, stats::setNames(this_key, display_label))
+
+          # Instantly descend to process any children belonging beneath this folder before moving to the next sibling
+          build_branch(current_parent = this_key, depth = depth + 1)
+        }
+      }
+
+      # Run the tree assembler starting from the root folders
+      build_branch(current_parent = NA, depth = 0)
+
+      # 4. Push the structured choices to the UI dropdown reactive element
+      if (length(hierarchical_choices) == 0) {
+        folders <- biblioview::fetch_zotero_collections(target_group, target_key)
+        available_folders(folders[order(names(folders))])
+      } else {
+        available_folders(hierarchical_choices)
       }
     })
   }
+
+  # ----------------------------------------------------------------------------
 
   # --- UNIFIED LAUNCH PARAMETER HANDSHAKE ---
   observe({
