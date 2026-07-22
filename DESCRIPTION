@@ -1,6 +1,6 @@
 Package: biblioview
 Title: A Shiny Web Portal and Abstract Enricher for Zotero Libraries
-Version: 0.2.1
+Version: 0.2.2
 Authors@R: person("Thomas", "Petzoldt", role = c("aut", "cre"),
                      email = "thomas.petzoldt@tu-dresden.de",
                      comment = c(ORCID = "0000-0002-4951-6468"))         
@@ -10,6 +10,7 @@ Description: Provides automated pipelines to fetch Zotero group libraries,
 License: GPL >= 2
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
+Depends: R (>= 4.1.0)
 Imports: 
     dplyr,
     httr,
