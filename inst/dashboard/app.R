@@ -20,7 +20,11 @@ ui <- dashboardPage(
           actionButton("scan_btn", "0. Scan Folders", class = "btn-warning w-100"),
           br(), br(),
 
-          uiOutput("folder_select_container"),
+          # Static selectizeInput (remains permanently bound in DOM so backspace/clear works cleanly)
+          selectizeInput("selected_folders", "Folders (Leave blank for all)",
+                         choices = NULL, multiple = TRUE,
+                         options = list(placeholder = 'Scan folders first...')),
+          br(),
 
           uiOutput("fetch_ui_container"),
           br(),
@@ -122,13 +126,10 @@ ui <- dashboardPage(
 
 server <- function(input, output, session) {
 
-  available_folders <- reactiveVal(NULL)
-  current_dataset   <- reactiveVal(NULL)
-  app_title         <- reactiveVal("Biblioview Portal")
-
-  # Flags to ensure parameters process exactly once at startup
-  url_processed     <- reactiveVal(FALSE)
-  init_folders      <- reactiveVal(NULL)
+  available_folders  <- reactiveVal(NULL)
+  current_dataset    <- reactiveVal(NULL)
+  app_title          <- reactiveVal("Biblioview Portal")
+  url_processed      <- reactiveVal(FALSE)
 
   output$dynamic_title <- renderUI({
     tags$span(app_title())
@@ -171,14 +172,18 @@ server <- function(input, output, session) {
       if (httr::status_code(coll_res) != 200) {
         showNotification("Could not read hierarchy metadata. Falling back to flat view.", type = "warning")
         folders <- biblioview::fetch_zotero_collections(target_group, target_key)
-        available_folders(folders[order(names(folders))])
+        sorted_f <- folders[order(names(folders))]
+        available_folders(sorted_f)
+        updateSelectizeInput(session, "selected_folders", choices = sorted_f, selected = character(0))
         return(NULL)
       }
 
       raw_json <- jsonlite::fromJSON(httr::content(coll_res, "text", encoding = "UTF-8"), simplifyVector = FALSE)
 
       if (length(raw_json) == 0) {
-        available_folders(c("All Folders (Root)" = "ROOT"))
+        root_f <- c("All Folders (Root)" = "ROOT")
+        available_folders(root_f)
+        updateSelectizeInput(session, "selected_folders", choices = root_f, selected = character(0))
         return(NULL)
       }
 
@@ -255,13 +260,21 @@ server <- function(input, output, session) {
       # Run the tree assembler starting from the root folders
       build_branch(current_parent = NA, depth = 0)
 
-      # 4. Push the structured choices to the UI dropdown reactive element
-      if (length(hierarchical_choices) == 0) {
+      choices_to_use <- if (length(hierarchical_choices) == 0) {
         folders <- biblioview::fetch_zotero_collections(target_group, target_key)
-        available_folders(folders[order(names(folders))])
+        folders[order(names(folders))]
       } else {
-        available_folders(hierarchical_choices)
+        hierarchical_choices
       }
+
+      available_folders(choices_to_use)
+
+      # Update choices in the persistent input box cleanly
+      selected_val <- if (!is.null(matched_keys)) matched_keys else character(0)
+      updateSelectizeInput(session, "selected_folders",
+                           choices = choices_to_use,
+                           selected = selected_val,
+                           options = list(placeholder = 'Select one or more folders'))
     })
 
     return(matched_keys)
@@ -271,7 +284,7 @@ server <- function(input, output, session) {
 
   # --- UNIFIED LAUNCH PARAMETER HANDSHAKE ---
   observe({
-    req(!url_processed()) # Ensures this block executes only once at startup
+    req(!url_processed()) # Executes strictly once at initial session startup
 
     # 1. Capture URL query strings (Primary for Shiny Server deployments)
     query <- parseQueryString(session$clientData$url_search)
@@ -289,7 +302,6 @@ server <- function(input, output, session) {
     final_folder <- if (!is.null(query$folder)) query$folder else opt_folder
 
     if (final_group != "" && final_key != "") {
-      # Defer update until the client web session has flushed HTML to guarantee input fields exist
       session$onFlushed(function() {
         updateTextInput(session, "group_id", value = final_group)
         updateTextInput(session, "api_key", value = final_key)
@@ -301,7 +313,6 @@ server <- function(input, output, session) {
 
       # Run scan and collect resolved folder keys
       target_keys <- run_folder_scan(final_group, final_key, target_folder_names = final_folder)
-      init_folders(target_keys)
 
       # ONLY execute auto-fetch if a folder argument was explicitly provided
       if (!is.null(final_folder) && final_folder != "") {
@@ -323,22 +334,6 @@ server <- function(input, output, session) {
   observeEvent(input$scan_btn, {
     req(input$group_id, input$api_key)
     run_folder_scan(input$group_id, input$api_key)
-  })
-
-  # Dynamic Dropdown
-  output$folder_select_container <- renderUI({
-    folders <- available_folders()
-    if (is.null(folders)) return(NULL)
-
-    # Use URL preselected keys on initial render
-    default_selected <- init_folders()
-
-    tagList(
-      selectizeInput("selected_folders", "Folders (Leave blank for all)",
-                     choices = folders, selected = default_selected, multiple = TRUE,
-                     options = list(placeholder = 'Select one or more folders')),
-      br()
-    )
   })
 
   # --- STEP 1: FETCH LIBRARY ---
