@@ -2,6 +2,7 @@ library(shinydashboard)
 library(biblioview)
 library(dplyr)
 library(DT)
+library(stringr)
 
 ui <- dashboardPage(
   title = "Biblioview Portal", # <-- Sets the default HTML metadata title for the browser tab
@@ -134,6 +135,16 @@ server <- function(input, output, session) {
   output$dynamic_title <- renderUI({
     tags$span(app_title())
   })
+
+  # Helper function to extract Note: lines from Extra
+  process_extra_notes <- function(df) {
+    if ("extra" %in% names(df)) {
+      df <- df |>
+        mutate(Note = stringr::str_match(extra, "(?im)^note:\\s*(.*)$")[, 2]) |>
+        select(!extra)
+    }
+    return(df)
+  }
 
   # --- CENTRALIZED SCAN FUNCTION ---
   # run_folder_scan <- function(target_group, target_key) {
@@ -322,6 +333,7 @@ server <- function(input, output, session) {
             api_key       = final_key,
             collection_id = target_keys
           )
+          raw <- process_extra_notes(raw)
           current_dataset(raw)
         })
       }
@@ -355,6 +367,7 @@ server <- function(input, output, session) {
         collection_id = folder_arg
       )
 
+      raw <- process_extra_notes(raw)
       current_dataset(raw)
     })
   })
@@ -447,24 +460,39 @@ server <- function(input, output, session) {
     # 1. Format the data first so we use the exact structure sent to DT
     formatted_df <- biblioview::format_hyperlinks(df)
 
-    # 2. Find the index safely on the formatted data (case-insensitive)
+    # 2. Find column indices safely on formatted data
     abstract_col_idx <- which(tolower(names(formatted_df)) == "abstract")
+    note_col_idx     <- which(tolower(names(formatted_df)) %in% c("note", "extra_note"))
 
-    # 3. Apply standard substring clipping if the column index exists
+    # 3. Apply standard substring clipping if column indices exist
     col_definitions <- list()
+
     if (length(abstract_col_idx) > 0 && !is.na(abstract_col_idx)) {
-      col_definitions <- list(
-        list(
-          targets = abstract_col_idx,
-          render = JS(
-            "function(data, type, row) {",
-            "  if (type === 'display' && data !== null && data.length > 90) {",
-            "    var cleanText = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
-            "    return '<span title=\"' + cleanText + '\">' + data.substring(0, 90) + '...</span>';",
-            "  }",
-            "  return data;",
-            "}"
-          )
+      col_definitions[[length(col_definitions) + 1]] <- list(
+        targets = abstract_col_idx,
+        render = JS(
+          "function(data, type, row) {",
+          "  if (type === 'display' && data !== null && data.length > 90) {",
+          "    var cleanText = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
+          "    return '<span title=\"' + cleanText + '\">' + data.substring(0, 90) + '...</span>';",
+          "  }",
+          "  return data;",
+          "}"
+        )
+      )
+    }
+
+    if (length(note_col_idx) > 0 && !is.na(note_col_idx)) {
+      col_definitions[[length(col_definitions) + 1]] <- list(
+        targets = note_col_idx,
+        render = JS(
+          "function(data, type, row) {",
+          "  if (type === 'display' && data !== null && data.length > 60) {",
+          "    var cleanText = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
+          "    return '<span title=\"' + cleanText + '\">' + data.substring(0, 60) + '...</span>';",
+          "  }",
+          "  return data;",
+          "}"
         )
       )
     }

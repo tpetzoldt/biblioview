@@ -53,6 +53,7 @@ zotero_to_apa <- function(item) {
   year     <- if(!is.null(d$date) && length(d$date) > 0) substr(d$date, 1, 4) else "n.d."
   title    <- safe_field(d$title, default = "Untitled")
   abstract <- safe_field(d$abstractNote, default = "")
+  extra    <- safe_field(d$extra, default = "") # <-- 1. Extract raw extra field cleanly
   doi      <- safe_field(d$DOI, default = "")
   url_link <- safe_field(d$url, default = "")
 
@@ -91,6 +92,7 @@ zotero_to_apa <- function(item) {
     DOI              = doi_str,
     APA_Citation     = safe_field(apa_citation, "Untitled Reference"),
     Abstract         = abstract,
+    extra            = extra, # <-- 2. Return extra in the single-row data frame
     stringsAsFactors = FALSE
   )
 

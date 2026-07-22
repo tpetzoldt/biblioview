@@ -108,7 +108,7 @@ fetch_all_zotero_data <- function(group_id, api_key, collection_id = NULL) {
   # 3. Combine into the exact requested table structure using native R pipes
   if (length(master_list) > 0) {
     final_df <- bind_rows(master_list) |>
-      select(Sub_Collection, Authors, Year, Title, DOI, APA_Citation, Abstract)
+      select(Sub_Collection, Authors, Year, Title, DOI, APA_Citation, Abstract, extra)
 
     # Separate items with a valid DOI from those without
     has_doi  <- final_df |> dplyr::filter(!is.na(DOI) & DOI != "" & DOI != "NA")
