@@ -122,17 +122,46 @@ ui <- dashboardPage(
 
 server <- function(input, output, session) {
 
-  available_folders  <- reactiveVal(NULL)
-  current_dataset    <- reactiveVal(NULL)
-  app_title          <- reactiveVal("Biblioview Portal")
-  preselected_keys   <- reactiveVal(NULL)
+  available_folders <- reactiveVal(NULL)
+  current_dataset   <- reactiveVal(NULL)
+  app_title         <- reactiveVal("Biblioview Portal")
+
+  # Flags to ensure parameters process exactly once at startup
+  url_processed     <- reactiveVal(FALSE)
+  init_folders      <- reactiveVal(NULL)
 
   output$dynamic_title <- renderUI({
     tags$span(app_title())
   })
 
+  # --- CENTRALIZED SCAN FUNCTION ---
+  # run_folder_scan <- function(target_group, target_key) {
+  #   withProgress(message = 'Scanning group folders...', value = 0.5, {
+  #     folders <- biblioview::fetch_zotero_collections(target_group, target_key)
+  #
+  #     if (length(folders) == 0) {
+  #       showNotification("No sub-folders found or invalid credentials. Showing root library by default.", type = "warning")
+  #       available_folders(c("All Folders (Root)" = "ROOT"))
+  #     } else {
+  #       # --- ALPHABETICAL SORTING ENGINE ---
+  #       # Sorts the named vector by its names (the human-readable titles)
+  #       if (!is.null(names(folders))) {
+  #         sorted_folders <- folders[order(names(folders))]
+  #       } else {
+  #         # Fallback if it's just a regular unnamed vector of strings
+  #         sorted_folders <- sort(folders)
+  #       }
+  #       available_folders(sorted_folders)
+  #     }
+  #   })
+  # }
+
+  # ----------------------------------------------------------------------------
+
   # --- HIERARCHICAL SIDEBAR SCAN INTERFACE ---
   run_folder_scan <- function(target_group, target_key, target_folder_names = NULL) {
+    matched_keys <- NULL
+
     withProgress(message = 'Mapping folder hierarchy...', value = 0.5, {
 
       # 1. Fetch the raw metadata definitions directly from the API to read the parent links
@@ -143,14 +172,14 @@ server <- function(input, output, session) {
         showNotification("Could not read hierarchy metadata. Falling back to flat view.", type = "warning")
         folders <- biblioview::fetch_zotero_collections(target_group, target_key)
         available_folders(folders[order(names(folders))])
-        return()
+        return(NULL)
       }
 
       raw_json <- jsonlite::fromJSON(httr::content(coll_res, "text", encoding = "UTF-8"), simplifyVector = FALSE)
 
       if (length(raw_json) == 0) {
         available_folders(c("All Folders (Root)" = "ROOT"))
-        return()
+        return(NULL)
       }
 
       # 2. Build a reliable local relationship table
@@ -164,18 +193,14 @@ server <- function(input, output, session) {
         stringsAsFactors = FALSE
       )
 
-      # Extract matching keys if target folder names were requested via URL
+      # Resolve folder keys from folder names if requested
       if (!is.null(target_folder_names) && target_folder_names != "") {
         req_folders <- trimws(unlist(strsplit(target_folder_names, ",")))
         matched_keys <- df_tree$key[tolower(df_tree$name) %in% tolower(req_folders)]
 
-        # Fallback: Check if user passed direct collection keys instead of human names
+        # Fallback: Check if user passed direct collection keys
         if (length(matched_keys) == 0) {
           matched_keys <- df_tree$key[df_tree$key %in% req_folders]
-        }
-
-        if (length(matched_keys) > 0) {
-          preselected_keys(matched_keys)
         }
       }
 
@@ -238,16 +263,20 @@ server <- function(input, output, session) {
         available_folders(hierarchical_choices)
       }
     })
+
+    return(matched_keys)
   }
 
   # ----------------------------------------------------------------------------
 
   # --- UNIFIED LAUNCH PARAMETER HANDSHAKE ---
   observe({
+    req(!url_processed()) # Ensures this block executes only once at startup
+
     # 1. Capture URL query strings (Primary for Shiny Server deployments)
     query <- parseQueryString(session$clientData$url_search)
 
-    # 2. Capture R global options (Primary for local launch_dashboard() function
+    # 2. Capture R global options (Primary for local launch_dashboard() function)
     opt_group  <- getOption("biblioview.group",  default = "")
     opt_key    <- getOption("biblioview.key",    default = "")
     opt_title  <- getOption("biblioview.title",  default = "")
@@ -259,21 +288,23 @@ server <- function(input, output, session) {
     final_title  <- if (!is.null(query$title))  query$title  else opt_title
     final_folder <- if (!is.null(query$folder)) query$folder else opt_folder
 
-    # 4. If credentials exist via either method, execute the scan instantly
     if (final_group != "" && final_key != "") {
-      isolate({
+      # Defer update until the client web session has flushed HTML to guarantee input fields exist
+      session$onFlushed(function() {
         updateTextInput(session, "group_id", value = final_group)
         updateTextInput(session, "api_key", value = final_key)
+      })
 
-        if (final_title != "") {
-          app_title(final_title)
-        }
+      if (final_title != "") {
+        app_title(final_title)
+      }
 
-        run_folder_scan(final_group, final_key, target_folder_names = final_folder)
+      # Run scan and collect resolved folder keys
+      target_keys <- run_folder_scan(final_group, final_key, target_folder_names = final_folder)
+      init_folders(target_keys)
 
-        # Trigger auto-fetch if a folder parameter was matched or requested
-        target_keys <- preselected_keys()
-
+      # ONLY execute auto-fetch if a folder argument was explicitly provided
+      if (!is.null(final_folder) && final_folder != "") {
         withProgress(message = 'Retrieving reference entries...', value = 0.5, {
           raw <- fetch_all_zotero_data(
             group_id      = final_group,
@@ -282,7 +313,9 @@ server <- function(input, output, session) {
           )
           current_dataset(raw)
         })
-      })
+      }
+
+      url_processed(TRUE)
     }
   })
 
@@ -297,11 +330,12 @@ server <- function(input, output, session) {
     folders <- available_folders()
     if (is.null(folders)) return(NULL)
 
-    selected_val <- preselected_keys()
+    # Use URL preselected keys on initial render
+    default_selected <- init_folders()
 
     tagList(
       selectizeInput("selected_folders", "Folders (Leave blank for all)",
-                     choices = folders, selected = selected_val, multiple = TRUE,
+                     choices = folders, selected = default_selected, multiple = TRUE,
                      options = list(placeholder = 'Select one or more folders')),
       br()
     )
@@ -365,14 +399,19 @@ server <- function(input, output, session) {
 
     # 1. Pull the raw UI string (or default to empty if the UI component isn't rendered yet)
     ui_email <- if (!is.null(input$polite_email)) trimws(input$polite_email) else ""
+
+    # 2. Fallback cascade: Use UI string if filled; otherwise drop back to system environment
     user_email <- if (ui_email != "") ui_email else Sys.getenv("POLITE_EMAIL")
 
     withProgress(message = 'Retrieving OpenAlex metrics...', value = 0.5, {
+      # Passes the safely resolved email down into the package logic
       df <- biblioview::fetch_citation_counts(df, email = user_email)
       current_dataset(df)
     })
   })
 
+  # --- STEP 3 EXECUTION: MODAL INTERCEPT & ABSTRACT ENRICHMENT ---
+  # Intercept the primary click to spawn the safety dialog box layout
   observeEvent(input$enrich_btn, {
     req(current_dataset())
 
@@ -392,7 +431,7 @@ server <- function(input, output, session) {
 
   # Actual execution trigger linked inside the modal confirmation action handle
   observeEvent(input$confirm_enrich_btn, {
-    removeModal()
+    removeModal() # Clear the overlay box away immediately
     df <- current_dataset()
     req(df)
 
@@ -412,6 +451,7 @@ server <- function(input, output, session) {
 
     # 1. Format the data first so we use the exact structure sent to DT
     formatted_df <- biblioview::format_hyperlinks(df)
+
     # 2. Find the index safely on the formatted data (case-insensitive)
     abstract_col_idx <- which(tolower(names(formatted_df)) == "abstract")
 
