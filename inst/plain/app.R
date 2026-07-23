@@ -2,6 +2,45 @@
 library(shiny)
 library(biblioview)
 library(DT)
+library(memoise)
+
+# ==============================================================================
+# GLOBAL MEMOISED FETCH FUNCTIONS (Shared across all user sessions)
+# ==============================================================================
+
+# 1. Cache collection definitions (folder name -> key lookup) for 5 minutes
+fetch_collections_cached <- memoise(
+  function(group, key) {
+    coll_url <- paste0("https://api.zotero.org/groups/", group, "/collections")
+    coll_res <- httr::GET(coll_url, httr::add_headers("Zotero-API-Key" = key))
+
+    if (httr::status_code(coll_res) == 200) {
+      jsonlite::fromJSON(
+        httr::content(coll_res, "text", encoding = "UTF-8"),
+        simplifyVector = FALSE
+      )
+    } else {
+      list()
+    }
+  },
+  cache = cachem::cache_mem(max_age = 300) # 300 seconds = 5 minutes
+)
+
+# 2. Cache main bibliographic item dataset for 5 minutes
+fetch_zotero_cached <- memoise(
+  function(group, key, collection_id) {
+    fetch_all_zotero_data(
+      group_id      = group,
+      api_key       = key,
+      collection_id = collection_id
+    )
+  },
+  cache = cachem::cache_mem(max_age = 300) # 300 seconds = 5 minutes
+)
+
+# ==============================================================================
+# SHINY UI & SERVER logic
+# ==============================================================================
 
 ui <- fluidPage(
   tags$head(
@@ -31,34 +70,25 @@ server <- function(input, output, session) {
 
     target_collection_id <- params$folder
 
-    # If a folder parameter is provided, check if it's a folder Name instead of a Key
+    # If a folder parameter is provided, resolve name to Key via cached lookup
     if (!is.null(target_collection_id)) {
-      # Fetch all collections definitions once to build a lookup map
-      coll_url <- paste0("https://api.zotero.org/groups/", params$group, "/collections")
-      coll_res <- httr::GET(coll_url, httr::add_headers("Zotero-API-Key" = params$key))
+      all_colls <- fetch_collections_cached(params$group, params$key)
 
-      if (httr::status_code(coll_res) == 200) {
-        all_colls <- jsonlite::fromJSON(
-          httr::content(coll_res, "text", encoding = "UTF-8"),
-          simplifyVector = FALSE
-        )
-
-        # Check if target_collection_id matches a folder NAME (case-insensitive)
+      if (length(all_colls) > 0) {
         matched_name <- Filter(function(x) {
           tolower(x$data$name) == tolower(target_collection_id)
         }, all_colls)
 
-        # If matched by name, extract its alphanumeric key!
         if (length(matched_name) > 0) {
           target_collection_id <- matched_name[[1]]$key
         }
       }
     }
 
-    # Fetch data using the resolved collection key
-    fetch_all_zotero_data(
-      group_id      = params$group,
-      api_key       = params$key,
+    # Fetch data using the memoised function
+    fetch_zotero_cached(
+      group         = params$group,
+      key           = params$key,
       collection_id = target_collection_id
     )
   })
@@ -85,7 +115,6 @@ server <- function(input, output, session) {
 
     # Drop unwanted columns for the plain embed view
     slim_df <- df |>
-      #dplyr::select(-any_of(c("Sub_Collection", "extra", "Abstract"))) |>
       dplyr::select(c("Authors", "Year", "Title", "APA_Citation", "DOI"))
 
     render_biblioview_table(slim_df, show_buttons = TRUE)
