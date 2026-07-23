@@ -84,12 +84,26 @@ zotero_to_apa <- function(item) {
   pub         <- safe_field(d$publisher, default = "")
   institution <- safe_field(d$institution, default = "")
 
-  title_clean <- sub("\\.$", "", title)
+  # --------------------------------------------------------------------------
+  # 3. Handle Title Terminal Punctuation (?, !)
+  # --------------------------------------------------------------------------
+  raw_title <- trimws(title)
+  has_question <- grepl("\\?$", raw_title)
+  has_exclamation <- grepl("!$", raw_title)
+
+  title_clean <- sub("[.?!]+$", "", raw_title)
+
+  if (has_question) {
+    formatted_title <- paste0(title_clean, "?")
+  } else if (has_exclamation) {
+    formatted_title <- paste0(title_clean, "!")
+  } else {
+    formatted_title <- paste0(title_clean, ".")
+  }
 
   # --------------------------------------------------------------------------
-  # 3. Build Plain-Text Source Strings & Titles
+  # 4. Build Plain-Text Source Strings
   # --------------------------------------------------------------------------
-  formatted_title <- title_clean
   source_str <- ""
 
   if (type == "journalArticle") {
@@ -120,7 +134,7 @@ zotero_to_apa <- function(item) {
   }
 
   # --------------------------------------------------------------------------
-  # 4. Construct Final Citation String & Links
+  # 5. Construct Final Citation String & Links
   # --------------------------------------------------------------------------
   if (doi != "") {
     doi <- sub("^.*?10\\.", "10.", doi)
@@ -128,12 +142,13 @@ zotero_to_apa <- function(item) {
 
   doi_str <- if (doi != "") paste0("https://doi.org/", doi) else url_link
 
-  apa_citation <- paste0(authors_apa, " (", year, "). ", formatted_title, ".")
+  # Notice: formatted_title already contains its ending period/question mark!
+  apa_citation <- paste0(authors_apa, " (", year, "). ", formatted_title)
   if (source_str != "") apa_citation <- paste0(apa_citation, " ", source_str, ".")
   if (doi_str != "")    apa_citation <- paste0(apa_citation, " ", doi_str)
 
   # --------------------------------------------------------------------------
-  # 5. Return Data Frame
+  # 6. Return Data Frame
   # --------------------------------------------------------------------------
   out <- data.frame(
     Authors      = safe_field(authors_apa, "Unknown"),
