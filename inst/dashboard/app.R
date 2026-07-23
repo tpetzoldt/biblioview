@@ -1,3 +1,4 @@
+## Fully functional dashboard version
 library(shinydashboard)
 library(biblioview)
 library(dplyr)
