@@ -89,7 +89,8 @@ server <- function(input, output, session) {
 
     # Drop unwanted columns for the plain embed view
     slim_df <- df |>
-      dplyr::select(-any_of(c("Sub_Collection", "extra", "Abstract")))
+      #dplyr::select(-any_of(c("Sub_Collection", "extra", "Abstract"))) |>
+      dplyr::select(c("Authors", "Year", "Title", "APA_Citation", "DOI"))
 
     render_biblioview_table(slim_df, show_buttons = FALSE)
   })

@@ -21,8 +21,8 @@ It implements a resource-polite, multi-pass pipeline to pull base metadata, reso
 Install the development version of `{biblioview}` directly from GitHub:
 
 ```R
-# install.packages("devtools")
-devtools::install_github("tpetzoldt/biblioview")
+# install.packages("remotes")
+remotes::install_github("tpetzoldt/biblioview")
 ```
 
 ---

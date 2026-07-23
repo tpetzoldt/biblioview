@@ -6,7 +6,7 @@
 \alias{biblioview-package}
 \title{biblioview: A Shiny Web Portal and Abstract Enricher for Zotero Libraries}
 \description{
-Provides automated pipelines to fetch Zotero group libraries, generate APA citations, and harvest missing abstracts from external metadata APIs (Crossref, OpenAlex, and Europe PMC).
+Provides automated pipelines to fetch Zotero group libraries, generate APA citations, and harvest citation counts and missing abstracts from external metadata APIs (Crossref, OpenAlex, and Europe PMC).
 }
 \author{
 \strong{Maintainer}: Thomas Petzoldt \email{thomas.petzoldt@tu-dresden.de} (\href{https://orcid.org/0000-0002-4951-6468}{ORCID})

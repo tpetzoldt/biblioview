@@ -20,7 +20,7 @@ ui <- dashboardPage(
 
           # Step 0: Scan Folders
           actionButton("scan_btn", "0. Scan Folders", class = "btn-warning w-100"),
-          br(), br(),
+          br(),
 
           # Static selectizeInput (remains permanently bound in DOM so backspace/clear works cleanly)
           selectizeInput("selected_folders", "Folders (Leave blank for all)",
@@ -33,14 +33,16 @@ ui <- dashboardPage(
 
           # Steps 1 and 2
           uiOutput("citation_ui_container"),
-          br(),
-          uiOutput("enrich_ui_container"),
 
           hr(),
 
           # Dynamic API Politeness Input Panel
           # Only displays after initial setup is verified to avoid cluttering the login
           uiOutput("polite_email_container"),
+
+          uiOutput("enrich_ui_container"),
+
+          hr(),
 
           htmlOutput("status_text")
       ),
@@ -70,7 +72,7 @@ ui <- dashboardPage(
           ),
           div(style = "font-size: 0.8em; color: #8a979e; display: flex; justify-content: space-between; padding: 0 5px;",
               # Dynamically reads the active Version field from the DESCRIPTION file
-              span(paste0("v", utils::packageVersion("biblioview"), " | ", format(Sys.Date(), "%Y-%m-%d"))),
+              span(paste0("v", utils::packageVersion("biblioview"), " | ", format(utils::packageDate("biblioview"), "%Y-%m-%d"))),
               tags$a(href = "https://github.com/tpetzoldt/biblioview", target = "_blank",
                      style = "color: #3d8d8d; text-decoration: underline;",
                      tags$i(class = "fa fa-github", style = "color: #3d8d8d; text-decoration: underline;"), "https://github.com/tpetzoldt")
@@ -395,7 +397,7 @@ server <- function(input, output, session) {
       tags$ul(class = "help-block-polite",
               style = "padding-left: 15px; margin-top: 5px; white-space: normal; word-wrap: break-word; line-height: 1.3;",
               tags$li("Providing a valid email address is polite open-access etiquette."),
-              tags$li("Grants your requests access to the higher-priority OpenAlex Polite Pool.")
+              tags$li("Speedup due to access to the higher-priority OpenAlex Polite Pool.")
       ),
       br()
     )

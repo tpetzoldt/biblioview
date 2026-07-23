@@ -53,6 +53,7 @@ render_biblioview_table <- function(df, title = "export", show_buttons = TRUE) {
   # Set up datatable arguments dynamically to avoid 'extensions' error
   dt_args <- list(
     data = formatted_df,
+    colnames = c(URL = "DOI", Citation = "APA_Citation"),
     escape = FALSE,
     filter = "top",
     options = list(
