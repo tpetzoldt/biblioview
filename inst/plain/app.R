@@ -87,7 +87,11 @@ server <- function(input, output, session) {
     df <- dataset()
     req(df)
 
-    render_biblioview_table(df, show_buttons = FALSE)
+    # Drop unwanted columns for the plain embed view
+    slim_df <- df |>
+      dplyr::select(-any_of(c("Sub_Collection", "extra", "Abstract")))
+
+    render_biblioview_table(slim_df, show_buttons = FALSE)
   })
 }
 
