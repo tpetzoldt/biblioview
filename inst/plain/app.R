@@ -5,76 +5,7 @@ library(DT)
 
 ui <- fluidPage(
   tags$head(
-    tags$style(HTML("
-
-      /* Remove margin/padding for clean iframe fit */
-      body, .container-fluid { padding: 0 !important; margin: 0 !important; }
-      .dataTables_wrapper { padding: 14px; }
-
-      /* Brilliant Blue Header & High-Contrast White Sort Arrows */
-      table.dataTable thead th {
-        background-color: #2563eb !important; /* Brilliant Blue */
-        color: #ffffff !important;
-        font-weight: 600 !important;
-        border-bottom: 2px solid #1d4ed8 !important;
-        padding: 10px 12px !important;
-      }
-
-      /* Force DataTables sort arrows to render in white */
-      table.dataTable thead .sorting::before,
-      table.dataTable thead .sorting::after,
-      table.dataTable thead .sorting_asc::before,
-      table.dataTable thead .sorting_asc::after,
-      table.dataTable thead .sorting_desc::before,
-      table.dataTable thead .sorting_desc::after {
-        color: #ffffff !important;
-        opacity: 0.8 !important; /* Makes inactive state visible against bright blue */
-      }
-
-      /* Make active sort direction 100% white */
-      table.dataTable thead .sorting_asc::before,
-      table.dataTable thead .sorting_desc::after {
-        opacity: 1 !important;
-      }
-
-      /* Blue Filter Inputs in Header */
-      table.dataTable thead input, table.dataTable thead select {
-        border: 1px solid #93c5fd !important;
-        border-radius: 4px !important;
-        color: #1e293b !important;
-      }
-
-      /* Gentle Zebra Striping & Interactive Hover */
-      table.dataTable tbody tr:nth-child(even) {
-        background-color: #f8fafc !important;
-      }
-      table.dataTable tbody tr:hover {
-        background-color: #e2e8f0 !important;
-        transition: background-color 0.15s ease-in-out;
-      }
-      /* Styled Blue Export Buttons (CSV / Excel / Copy) */
-      .dt-button {
-        background: #2563eb !important;
-        color: #ffffff !important;
-        border: none !important;
-        border-radius: 6px !important;
-        padding: 6px 14px !important;
-        font-weight: 500 !important;
-        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2) !important;
-        margin-right: 6px !important;
-      }
-      .dt-button:hover {
-        background: #1d4ed8 !important;
-        box-shadow: 0 4px 6px rgba(29, 78, 216, 0.3) !important;
-      }
-
-      /* Clean Search Box and Pagination Styling */
-      .dataTables_filter input, .dataTables_length select {
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 6px !important;
-        padding: 4px 8px !important;
-      }
-    "))
+    includeCSS("www/custom.css")
   ),
   uiOutput("embed_ui")
 )
