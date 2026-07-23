@@ -4,7 +4,6 @@ library(biblioview)
 library(DT)
 
 ui <- fluidPage(
-  # Clean CSS reset for embed
   tags$head(
     tags$style(HTML("
       body, .container-fluid { padding: 0 !important; margin: 0 !important; }
@@ -12,62 +11,71 @@ ui <- fluidPage(
       .alert { margin: 15px; }
     "))
   ),
-
-  # Dynamic UI: Shows error alert if params missing, or table if valid
   uiOutput("embed_ui")
 )
 
 server <- function(input, output, session) {
 
-  # Parse URL parameters safely
+  `%||%` <- function(a, b) if (!is.null(a) && nzchar(a)) a else b
+
   url_params <- reactive({
-    # Shiny's built-in helper
     query <- getQueryString()
 
-    # Fallback to getOption if URL parameter not provided
     list(
-      group   = query$group   %||% getOption("biblioview.group", ""),
-      key     = query$key     %||% getOption("biblioview.key", ""),
-      folder  = query$folder  %||% getOption("biblioview.folder", NULL),
-      keyword = query$keyword %||% NULL
+      group  = query$group  %||% getOption("biblioview.group", ""),
+      key    = query$key    %||% getOption("biblioview.key", ""),
+      folder = query$folder %||% getOption("biblioview.folder", NULL)
     )
   })
 
-  # Helper %||% operator for NULL fallback
-  `%||%` <- function(a, b) if (!is.null(a) && nzchar(a)) a else b
-
-  # Fetch dataset
   dataset <- reactive({
     params <- url_params()
 
-    # Require minimal authorization params to proceed
     req(params$group != "", params$key != "")
 
-    raw <- fetch_all_zotero_data(
-      group_id      = params$group,
-      api_key       = params$key,
-      collection_id = params$folder
-    )
+    target_collection_id <- params$folder
 
-    # Optional keyword filter if passed via URL (?keyword=item)
-    if (!is.null(params$keyword) && "title" %in% names(raw)) {
-      raw <- raw[grep(params$keyword, raw$title, ignore.case = TRUE), ]
+    # If a folder parameter is provided, check if it's a folder Name instead of a Key
+    if (!is.null(target_collection_id)) {
+      # Fetch all collections definitions once to build a lookup map
+      coll_url <- paste0("https://api.zotero.org/groups/", params$group, "/collections")
+      coll_res <- httr::GET(coll_url, httr::add_headers("Zotero-API-Key" = params$key))
+
+      if (httr::status_code(coll_res) == 200) {
+        all_colls <- jsonlite::fromJSON(
+          httr::content(coll_res, "text", encoding = "UTF-8"),
+          simplifyVector = FALSE
+        )
+
+        # Check if target_collection_id matches a folder NAME (case-insensitive)
+        matched_name <- Filter(function(x) {
+          tolower(x$data$name) == tolower(target_collection_id)
+        }, all_colls)
+
+        # If matched by name, extract its alphanumeric key!
+        if (length(matched_name) > 0) {
+          target_collection_id <- matched_name[[1]]$key
+        }
+      }
     }
 
-    raw
+    # Fetch data using the resolved collection key
+    fetch_all_zotero_data(
+      group_id      = params$group,
+      api_key       = params$key,
+      collection_id = target_collection_id
+    )
   })
 
-  # Main UI switcher
   output$embed_ui <- renderUI({
     params <- url_params()
 
-    # Diagnostic safety check if API params aren't set
     if (params$group == "" || params$key == "") {
       return(
         div(class = "alert alert-warning",
             h4("Missing Launch Parameters"),
             p("Please supply group and key via URL parameters or options."),
-            tags$code("?group=12345&key=ABCDE&keyword=item")
+            tags$code("?group=12345&key=ABCDE&folder=COLLECTION_KEY")
         )
       )
     }
@@ -79,7 +87,6 @@ server <- function(input, output, session) {
     df <- dataset()
     req(df)
 
-    # Use package helper function
     render_biblioview_table(df, show_buttons = FALSE)
   })
 }

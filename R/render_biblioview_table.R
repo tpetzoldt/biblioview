@@ -50,10 +50,10 @@ render_biblioview_table <- function(df, title = "export", show_buttons = TRUE) {
 
   dom_str <- if (show_buttons) 'Blfrtip' else 'lfrtip'
 
-  DT::datatable(
-    formatted_df,
+  # Set up datatable arguments dynamically to avoid 'extensions' error
+  dt_args <- list(
+    data = formatted_df,
     escape = FALSE,
-    extensions = if (show_buttons) 'Buttons' else NULL,
     filter = "top",
     options = list(
       dom = dom_str,
@@ -67,4 +67,11 @@ render_biblioview_table <- function(df, title = "export", show_buttons = TRUE) {
       columnDefs = col_definitions
     )
   )
+
+  # Only include extensions vector when show_buttons is TRUE
+  if (show_buttons) {
+    dt_args$extensions <- "Buttons"
+  }
+
+  do.call(DT::datatable, dt_args)
 }
