@@ -12,4 +12,4 @@ navbar:
       text: Articles
       menu:
         - text: "Getting Started with biblioview"
-          href: articles/biblioview-setup.html
+          href: articles/getting-started.html
