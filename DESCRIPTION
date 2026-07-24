@@ -1,20 +1,30 @@
 Package: biblioview
 Title: A Shiny Web Portal and Abstract Enricher for Zotero Libraries
-Version: 0.3.6
+Version: 0.4.0
 Authors@R: person("Thomas", "Petzoldt", role = c("aut", "cre"),
                      email = "thomas.petzoldt@tu-dresden.de",
                      comment = c(ORCID = "0000-0002-4951-6468"))         
 Description: Provides automated pipelines to fetch Zotero group libraries, 
     generate APA citations, and harvest citation counts and missing abstracts
     from external metadata APIs (Crossref, OpenAlex, and Europe PMC).
-License: GPL >= 2
+License: GPL (>= 2)
 Encoding: UTF-8
+VignetteBuilder: quarto, knitr
 Roxygen: list(markdown = TRUE)
 Depends: R (>= 4.1.0)
-Imports: 
+Imports:
+    DT,
     dplyr,
     httr,
     jsonlite,
-    purrr
+    purrr,
+    shiny
 Config/roxygen2/version: 8.0.0
 URL: https://tpetzoldt.github.io/biblioview/
+Suggests: 
+    knitr,
+    quarto,
+    rmarkdown,
+    shinydashboard,
+    stringr,
+    memoise

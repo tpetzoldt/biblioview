@@ -6,3 +6,4 @@
 .quarto
 /_local
 docs
+inst/doc
