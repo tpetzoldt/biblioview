@@ -2,5 +2,5 @@
 
 ### All vignettes
 
-- [Getting Started with
-  biblioview](https://tpetzoldt.github.io/biblioview/articles/getting-started.md):
+- [The biblioview
+  Apps](https://tpetzoldt.github.io/biblioview/articles/biblioview-apps.md):
