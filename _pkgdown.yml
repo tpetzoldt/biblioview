@@ -1,0 +1,15 @@
+url: https://tpetzoldt.github.io/biblioview/
+
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left:  [intro, reference, articles, news]
+    right: [github]
+  components:
+    articles:
+      text: Articles
+      menu:
+        - text: "Getting Started with biblioview"
+          href: articles/biblioview-setup.html
