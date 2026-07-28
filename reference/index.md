@@ -18,5 +18,7 @@
   : Launch the Biblioview Dashboard Locally
 - [`render_biblioview_table()`](https://tpetzoldt.github.io/biblioview/reference/render_biblioview_table.md)
   : Create Standard Biblioview DataTable
+- [`sync_missing_abstracts_to_zotero()`](https://tpetzoldt.github.io/biblioview/reference/sync_missing_abstracts_to_zotero.md)
+  : Sync Missing Abstracts Back to Zotero API
 - [`zotero_to_apa()`](https://tpetzoldt.github.io/biblioview/reference/zotero_to_apa.md)
   : Convert Zotero Item Data to Simplified Plain-Text APA 7 Format

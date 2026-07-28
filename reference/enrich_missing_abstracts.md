@@ -8,8 +8,8 @@ Enrich Missing Abstracts from External Metadata APIs
 enrich_missing_abstracts(
   df,
   email_contact = Sys.getenv("POLITE_EMAIL"),
-  providers = list(epmc = fetch_abstract_epmc, openalex = fetch_abstract_openalex,
-    crossref = fetch_abstract_crossref)
+  providers = list(epmc = fetch_abstract_epmc, crossref = fetch_abstract_crossref,
+    openalex = fetch_abstract_openalex)
 )
 ```
 
