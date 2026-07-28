@@ -1,4 +1,3 @@
-
 # =========================================================================
 # INDIVIDUAL API FETCHERS for Abstract Enrichment
 # =========================================================================
@@ -73,6 +72,28 @@ fetch_abstract_crossref <- function(doi, req_template) {
     if (!is.null(abstract) && nzchar(trimws(abstract))) {
       return(trimws(gsub("<[^>]+>", "", abstract)))
     }
+  }
+  return(NULL)
+}
+
+
+#' Fetch Abstract from Semantic Scholar
+#' @param doi Clean DOI string.
+#' @param req_template httr2 base request.
+#' @return Character string containing abstract or NULL if not found.
+#' @keywords internal
+
+fetch_abstract_semanticscholar <- function(doi, base_req) {
+  url <- paste0("https://api.semanticscholar.org/graph/v1/paper/DOI:", doi, "?fields=abstract")
+  res <- tryCatch({
+    base_req |>
+      httr2::req_url(url) |>
+      httr2::req_perform() |>
+      httr2::resp_body_json()
+  }, error = function(e) NULL)
+
+  if (!is.null(res$abstract) && nzchar(trimws(res$abstract))) {
+    return(res$abstract)
   }
   return(NULL)
 }

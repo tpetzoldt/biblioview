@@ -196,10 +196,12 @@ sync_missing_abstracts_to_zotero <- function(group_id,
     for (item in missing_items) {
       item_key     <- item$key
       item_version <- item$version
-      raw_doi      <- extract_doi(item$data)
-      clean_doi    <- sub("^https?://(dx\\.)?doi\\.org/", "", raw_doi)
 
-      if (!grepl("^10\\.", clean_doi)) next
+      # Clean and URL-encode for API requests
+      clean_doi <- extract_doi(item$data)
+      if (is.null(clean_doi)) next
+
+      encoded_doi <- URLencode(clean_doi, reserved = TRUE)
 
       message(sprintf("\nProcessing Zotero Key: %s | DOI: %s", item_key, clean_doi))
 
