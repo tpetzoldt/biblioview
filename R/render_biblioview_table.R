@@ -21,12 +21,12 @@ render_biblioview_table <- function(df, title = "export", show_buttons = TRUE) {
   # JS Truncation for Abstracts (Note: DT column indices are 0-based)
   if (length(abstract_col_idx) > 0 && !is.na(abstract_col_idx[1])) {
     col_definitions[[length(col_definitions) + 1]] <- list(
-      targets = abstract_col_idx[1] - 1,
+      targets = abstract_col_idx[1],
       render = DT::JS(
         "function(data, type, row) {",
         "  if (type === 'display' && data !== null && data.length > 140) {",
         "    var cleanTooltip = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
-        "    return '<span class=\"expandable-cell\" title=\"' + cleanTooltip + '\" data-fulltext=\"' + encodeURIComponent(data) + '\" data-type=\"Abstract\" style=\"border-bottom: 1px dashed #6c757d; cursor: pointer;\">' + data.substring(0, 140) + '... \\U0001F50D</span>';",
+        "    return '<span class=\"expandable-cell\" title=\"' + cleanTooltip + '\" data-fulltext=\"' + encodeURIComponent(data) + '\" data-type=\"Note\" style=\"border-bottom: 1px dashed #6c757d; cursor: pointer;\">' + data.substring(0, 90) + '... &#x1F50D;</span>';",
         "  }",
         "  return data;",
         "}"
@@ -37,12 +37,12 @@ render_biblioview_table <- function(df, title = "export", show_buttons = TRUE) {
   # JS Truncation for Notes
   if (length(note_col_idx) > 0 && !is.na(note_col_idx[1])) {
     col_definitions[[length(col_definitions) + 1]] <- list(
-      targets = note_col_idx[1] - 1,
+      targets = note_col_idx[1],
       render = DT::JS(
         "function(data, type, row) {",
         "  if (type === 'display' && data !== null && data.length > 90) {",
         "    var cleanTooltip = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
-        "    return '<span class=\"expandable-cell\" title=\"' + cleanTooltip + '\" data-fulltext=\"' + encodeURIComponent(data) + '\" data-type=\"Note\" style=\"border-bottom: 1px dashed #6c757d; cursor: pointer;\">' + data.substring(0, 90) + '... \\U0001F50D</span>';",
+        "    return '<span class=\"expandable-cell\" title=\"' + cleanTooltip + '\" data-fulltext=\"' + encodeURIComponent(data) + '\" data-type=\"Note\" style=\"border-bottom: 1px dashed #6c757d; cursor: pointer;\">' + data.substring(0, 90) + '... &#x1F50D;</span>';",
         "  }",
         "  return data;",
         "}"
