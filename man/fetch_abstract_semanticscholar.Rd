@@ -9,7 +9,7 @@ fetch_abstract_semanticscholar(doi, base_req)
 \arguments{
 \item{doi}{Clean DOI string.}
 
-\item{req_template}{httr2 base request.}
+\item{base_req}{httr2 base request.}
 }
 \value{
 Character string containing abstract or NULL if not found.
@@ -17,4 +17,3 @@ Character string containing abstract or NULL if not found.
 \description{
 Fetch Abstract from Semantic Scholar
 }
-\keyword{internal}

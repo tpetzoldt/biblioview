@@ -14,7 +14,8 @@
 #'   Defaults to environment variable `POLITE_EMAIL`.
 #' @param providers Named list of provider functions passed to external APIs.
 #'
-#' @return A named list containing summary statistics of the sync operation.
+#' @return A named list containing summary statistics of the sync operation and
+#'   details on any unresolvable items.
 #'
 #' @export
 sync_missing_abstracts_to_zotero <- function(group_id,
@@ -23,9 +24,9 @@ sync_missing_abstracts_to_zotero <- function(group_id,
                                              force_overwrite = FALSE,
                                              email_contact = Sys.getenv("POLITE_EMAIL"),
                                              providers = list(
-                                               epmc     = fetch_abstract_epmc,
-                                               crossref = fetch_abstract_crossref,
-                                               openalex = fetch_abstract_openalex
+                                               epmc            = fetch_abstract_epmc,
+                                               crossref        = fetch_abstract_crossref,
+                                               openalex        = fetch_abstract_openalex
                                              )) {
 
   if (missing(group_id) || missing(api_key)) {
@@ -70,15 +71,14 @@ sync_missing_abstracts_to_zotero <- function(group_id,
       all_child_keys <- get_all_children(parent_keys, all_colls)
       target_collection_keys <- unique(c(parent_keys, all_child_keys))
 
-      cat(sprintf("✓ Scoped to folder(s) + descendants (%d collection keys matched)\n",
+      cat(sprintf("\u2713 Scoped to folder(s) + descendants (%d collection keys matched)\n",
                   length(target_collection_keys)))
     } else {
       stop("Failed to fetch collections from Zotero API. Check your permissions.")
     }
   }
 
-  # 2. Fetch items using deterministic sorting and itemType exclusions
-  # 2. Fetch items using deterministic sorting
+  # 2. Fetch items using deterministic sorting and filter attachments/notes
   fetch_zotero_endpoint <- function(endpoint_url) {
     items <- list()
     start_index <- 0
@@ -142,30 +142,23 @@ sync_missing_abstracts_to_zotero <- function(group_id,
   }
 
   total_fetched_raw <- length(all_items)
-  cat(sprintf("✓ Successfully retrieved %d top-level bibliographic items.\n", total_fetched_raw))
+  cat(sprintf("\u2713 Successfully retrieved %d top-level bibliographic items.\n", total_fetched_raw))
 
   # 3. Categorize items with and without DOIs
-  valid_items <- Filter(function(x) !is.null(extract_doi(x$data)), all_items)
+  valid_items  <- Filter(function(x) !is.null(extract_doi(x$data)), all_items)
   no_doi_items <- Filter(function(x) is.null(extract_doi(x$data)), all_items)
 
   total_records <- length(valid_items)
 
-  if (length(no_doi_items) > 0) {
-    cat(sprintf("\nℹ %d items skipped (no DOI found in 'DOI' or 'Extra' fields):\n", length(no_doi_items)))
-    for (ndi in no_doi_items) {
-      title_str <- ifelse(!is.null(ndi$data$title), substr(ndi$data$title, 1, 40), "[No Title]")
-      cat(sprintf("   - Key: %s | Title: %s...\n", ndi$key, title_str))
-    }
-  }
-
   if (total_records == 0) {
-    cat("✓ No items with valid DOIs found for this scope.\n")
+    cat("\u2713 No items with valid DOIs found for this scope.\n")
     return(invisible(list(
-      n_records = 0,
-      n_preexisting = 0,
-      n_retrieved = 0,
+      n_records           = 0,
+      n_preexisting       = 0,
+      n_retrieved         = 0,
       retrieved_by_source = setNames(as.list(rep(0, length(providers))), names(providers)),
-      n_still_empty = 0
+      n_still_empty       = 0,
+      unresolved_items    = list()
     )))
   }
 
@@ -181,13 +174,14 @@ sync_missing_abstracts_to_zotero <- function(group_id,
   n_preexisting <- length(preexisting_items)
   n_missing     <- length(missing_items)
 
-  source_counts <- setNames(rep(0, length(providers)), names(providers))
-  n_retrieved   <- 0
+  source_counts    <- setNames(rep(0, length(providers)), names(providers))
+  n_retrieved      <- 0
+  unresolved_list  <- list()
 
   if (n_missing == 0) {
-    cat(sprintf("\n✓ All %d records with DOIs already have abstracts!\n", total_records))
+    cat(sprintf("\n\u2713 All %d records with DOIs already have abstracts!\n", total_records))
   } else {
-    cat(sprintf("\nFound %d records with DOIs. %d kept as-is, %d scheduled for enrichment...\n",
+    cat(sprintf("\nFound %d records with DOIs (%d kept as-is, %d scheduled for enrichment)...\n",
                 total_records, n_preexisting, n_missing))
 
     base_req <- build_base_req(email_contact)
@@ -205,15 +199,15 @@ sync_missing_abstracts_to_zotero <- function(group_id,
 
       message(sprintf("\nProcessing Zotero Key: %s | DOI: %s", item_key, clean_doi))
 
-      fetched_abstract <- NULL
+      fetched_abstract  <- NULL
       successful_source <- NULL
 
       for (provider_name in names(providers)) {
-        fetcher_fn <- providers[[provider_name]]
-        raw_abstract <- fetcher_fn(clean_doi, base_req)
+        fetcher_fn   <- providers[[provider_name]]
+        raw_abstract <- fetcher_fn(encoded_doi, base_req)
 
         if (!is.null(raw_abstract) && nzchar(trimws(raw_abstract))) {
-          fetched_abstract <- sanitize_abstract_text(raw_abstract)
+          fetched_abstract  <- sanitize_abstract_text(raw_abstract)
           successful_source <- provider_name
           message(sprintf("  -> Abstract found via %s!", provider_name))
           break
@@ -222,7 +216,6 @@ sync_missing_abstracts_to_zotero <- function(group_id,
 
       if (!is.null(fetched_abstract)) {
         patch_url <- paste0("https://api.zotero.org/groups/", group_id, "/items/", item_key)
-
         patch_body <- list(abstractNote = fetched_abstract)
 
         patch_req <- httr2::request(patch_url) |>
@@ -249,7 +242,15 @@ sync_missing_abstracts_to_zotero <- function(group_id,
 
         Sys.sleep(0.2)
       } else {
-        message("  -> Abstract not available in configured repositories.")
+        message("  -> Abstract not available in configured open repositories.")
+
+        # Collect unresolvable item metadata
+        item_title <- if (!is.null(item$data$title) && nzchar(trimws(item$data$title))) item$data$title else "[No Title]"
+        unresolved_list[[length(unresolved_list) + 1]] <- list(
+          key   = item_key,
+          doi   = clean_doi,
+          title = item_title
+        )
       }
     }
   }
@@ -261,9 +262,11 @@ sync_missing_abstracts_to_zotero <- function(group_id,
     n_preexisting       = n_preexisting,
     n_retrieved         = n_retrieved,
     retrieved_by_source = as.list(source_counts),
-    n_still_empty       = n_still_empty
+    n_still_empty       = n_still_empty,
+    unresolved_items    = unresolved_list
   )
 
+  # Display Clean Summary Report
   cat("\n==================================================\n")
   cat("          ZOTERO ABSTRACT SYNC SUMMARY            \n")
   cat("==================================================\n")
@@ -282,54 +285,17 @@ sync_missing_abstracts_to_zotero <- function(group_id,
   }
 
   cat(sprintf("Remaining Empty Abstracts:          %d\n", summary_stats$n_still_empty))
-  cat("==================================================\n\n")
+  cat("==================================================\n")
 
-
-
-  # Quick Pipeline Audit Script
-  cat("\n=== PIPELINE AUDIT ===\n")
-  cat("1. Total raw items fetched from API:  ", length(all_items), "\n")
-
-  # Step A: Filter non-bibliographic items
-  bib_items <- Filter(function(x) {
-    itype <- x$data$itemType
-    !is.null(itype) && !itype %in% c("attachment", "note")
-  }, all_items)
-  cat("2. Bibliographic items remaining:    ", length(bib_items), "\n")
-
-  # Step B: Filter items with DOIs (checking extract_doi)
-  doi_items <- Filter(function(x) !is.null(extract_doi(x$data)), bib_items)
-  cat("3. Items with valid DOIs found:      ", length(doi_items), "\n")
-
-  # Step C: Check abstract status breakdown
-  items_with_abstract <- Filter(function(x) {
-    abs <- x$data$abstractNote
-    !is.null(abs) && nzchar(trimws(abs))
-  }, doi_items)
-
-  items_missing_abstract <- Filter(function(x) {
-    abs <- x$data$abstractNote
-    is.null(abs) || !nzchar(trimws(abs))
-  }, doi_items)
-
-  cat("4. Items that ALREADY have abstract: ", length(items_with_abstract), "\n")
-  cat("5. Items QUEUED for enrichment:      ", length(items_missing_abstract), "\n")
-  cat("======================\n\n")
-
-  # Print the keys and titles of the queued items to verify
-  if (length(items_missing_abstract) > 0) {
-    cat("Queued Items for Enrichment:\n")
-    for (item in items_missing_abstract) {
-      cat(sprintf("  - Key: %s | DOI: %s | Title: %s\n",
-                  item$key,
-                  extract_doi(item$data),
-                  substr(item$data$title %||% "[No Title]", 1, 35)))
+  # Optional reporting for unresolvable items
+  if (length(unresolved_list) > 0) {
+    cat("\n\u2139 Items lacking available abstracts in open repositories:\n")
+    for (unres in unresolved_list) {
+      cat(sprintf("   - Key: %s | DOI: %s\n     Title: %s\n",
+                  unres$key, unres$doi, substr(unres$title, 1, 60)))
     }
-  } else {
-    cat("No items queued! Check if `force_overwrite = TRUE` is needed.\n")
+    cat("\n")
   }
-
-
 
   return(invisible(summary_stats))
 }

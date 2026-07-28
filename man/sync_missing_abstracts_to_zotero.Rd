@@ -31,7 +31,8 @@ Defaults to environment variable \code{POLITE_EMAIL}.}
 \item{providers}{Named list of provider functions passed to external APIs.}
 }
 \value{
-A named list containing summary statistics of the sync operation.
+A named list containing summary statistics of the sync operation and
+details on any unresolvable items.
 }
 \description{
 Scans a Zotero group library (or specific collections) for top-level items

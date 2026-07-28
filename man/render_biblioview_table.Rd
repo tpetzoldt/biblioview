@@ -7,11 +7,11 @@
 render_biblioview_table(df, title = "export", show_buttons = TRUE)
 }
 \arguments{
-\item{df}{Data frame containing reference entries}
+\item{df}{Data frame containing reference entries.}
 
-\item{title}{Character. Export filename prefix}
+\item{title}{Character. Export filename prefix.}
 
-\item{show_buttons}{Logical. Include Copy/CSV/Excel export buttons}
+\item{show_buttons}{Logical. Include Copy/CSV/Excel export buttons.}
 }
 \description{
 Handles hyperlink formatting, JS tooltips, column truncation,

@@ -17,4 +17,3 @@ Character string containing abstract or NULL if not found.
 \description{
 Fetch Abstract from Crossref
 }
-\keyword{internal}

@@ -2,19 +2,19 @@
 % Please edit documentation in R/fetch_abstract.R
 \name{fetch_abstract_epmc}
 \alias{fetch_abstract_epmc}
-\title{Fetch Abstract from Europe PMC}
+\title{Fetch Abstract from Europe PMC API}
 \usage{
-fetch_abstract_epmc(doi, req_template)
+fetch_abstract_epmc(encoded_doi, base_req)
 }
 \arguments{
-\item{doi}{Clean DOI string.}
+\item{encoded_doi}{Character string. Clean or URL-encoded DOI.}
 
-\item{req_template}{httr2 base request.}
+\item{base_req}{An httr2 request object configured with user-agent/headers.}
 }
 \value{
-Character string containing abstract or NULL if not found.
+Character string containing abstract text, or \code{NULL} if not found.
 }
 \description{
-Fetch Abstract from Europe PMC
+Queries Europe PMC for an article's abstract using its DOI. Requires
+\code{resultType = "core"} in the query parameters to ensure abstract text is included.
 }
-\keyword{internal}

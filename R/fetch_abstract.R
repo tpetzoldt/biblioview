@@ -2,36 +2,49 @@
 # INDIVIDUAL API FETCHERS for Abstract Enrichment
 # =========================================================================
 
-#' Fetch Abstract from Europe PMC
-#' @param doi Clean DOI string.
-#' @param req_template httr2 base request.
-#' @return Character string containing abstract or NULL if not found.
-#' @keywords internal
-fetch_abstract_epmc <- function(doi, req_template) {
-  epmc_req <- req_template |>
-    httr2::req_url("https://www.ebi.ac.uk/europepmc/webservices/rest/search") |>
-    httr2::req_url_query(query = paste0("doi:", doi), resultType = "core", format = "json")
 
-  epmc_res <- httr2::req_perform(epmc_req)
+#' Fetch Abstract from Europe PMC API
+#'
+#' Queries Europe PMC for an article's abstract using its DOI. Requires
+#' `resultType = "core"` in the query parameters to ensure abstract text is included.
+#'
+#' @param encoded_doi Character string. Clean or URL-encoded DOI.
+#' @param base_req An httr2 request object configured with user-agent/headers.
+#'
+#' @return Character string containing abstract text, or `NULL` if not found.
+#' @export
+fetch_abstract_epmc <- function(encoded_doi, base_req) {
+  clean_doi <- URLdecode(encoded_doi)
 
-  if (httr2::resp_status(epmc_res) == 200) {
-    data <- httr2::resp_body_json(epmc_res, simplifyVector = FALSE)
-    results <- data$resultList$result
-    if (length(results) > 0) {
-      abstract <- results[[1]]$abstractText
-      if (!is.null(abstract) && nzchar(trimws(abstract))) {
-        return(trimws(abstract))
-      }
-    }
+  res <- tryCatch({
+    base_req |>
+      httr2::req_url("https://www.ebi.ac.uk/europepmc/webservices/rest/search") |>
+      httr2::req_url_query(
+        query      = sprintf('DOI:"%s"', clean_doi),
+        format     = "json",
+        resultType = "core"
+      ) |>
+      httr2::req_perform() |>
+      httr2::resp_body_json()
+  }, error = function(e) NULL)
+
+  if (is.null(res)) return(NULL)
+
+  result_list <- res$resultList$result
+  if (length(result_list) > 0 && !is.null(result_list[[1]]$abstractText)) {
+    abs_text <- result_list[[1]]$abstractText
+    if (nzchar(trimws(abs_text))) return(abs_text)
   }
+
   return(NULL)
 }
+
 
 #' Fetch Abstract from OpenAlex
 #' @param doi Clean DOI string.
 #' @param req_template httr2 base request.
 #' @return Character string containing abstract or NULL if not found.
-#' @keywords internal
+#' @export
 fetch_abstract_openalex <- function(doi, req_template) {
   oa_req <- req_template |>
     httr2::req_url(paste0("https://api.openalex.org/works/doi:", doi))
@@ -59,7 +72,7 @@ fetch_abstract_openalex <- function(doi, req_template) {
 #' @param doi Clean DOI string.
 #' @param req_template httr2 base request.
 #' @return Character string containing abstract or NULL if not found.
-#' @keywords internal
+#' @export
 fetch_abstract_crossref <- function(doi, req_template) {
   cr_req <- req_template |>
     httr2::req_url(paste0("https://api.crossref.org/works/", doi))
@@ -79,10 +92,9 @@ fetch_abstract_crossref <- function(doi, req_template) {
 
 #' Fetch Abstract from Semantic Scholar
 #' @param doi Clean DOI string.
-#' @param req_template httr2 base request.
+#' @param base_req httr2 base request.
 #' @return Character string containing abstract or NULL if not found.
-#' @keywords internal
-
+#' @export
 fetch_abstract_semanticscholar <- function(doi, base_req) {
   url <- paste0("https://api.semanticscholar.org/graph/v1/paper/DOI:", doi, "?fields=abstract")
   res <- tryCatch({
