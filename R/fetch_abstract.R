@@ -1,6 +1,6 @@
 
 # =========================================================================
-# INDIVIDUAL API FETCHERS
+# INDIVIDUAL API FETCHERS for Abstract Enrichment
 # =========================================================================
 
 #' Fetch Abstract from Europe PMC
