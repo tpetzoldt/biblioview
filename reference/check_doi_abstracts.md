@@ -45,7 +45,7 @@ check_doi_abstracts("10.18637/jss.v097.i10")
 #>   epmc             : ✗ Not available / NULL
 #>   crossref         : ✗ Not available / NULL
 #>   openalex         : ✓ FOUND (1074 characters)
-#>   semanticscholar  : ✓ FOUND (1076 characters)
+#>   semanticscholar  : ✗ Not available / NULL
 #> ====================================================
 #> 
 
