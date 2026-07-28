@@ -8,13 +8,13 @@
 ## Citation
 
 Petzoldt T (2026). *biblioview: A Shiny Web Portal and Abstract Enricher
-for Zotero Libraries*. R package version 0.5.2,
+for Zotero Libraries*. R package version 0.5.3,
 <https://tpetzoldt.github.io/biblioview/>.
 
     @Manual{,
       title = {biblioview: A Shiny Web Portal and Abstract Enricher for Zotero Libraries},
       author = {Thomas Petzoldt},
       year = {2026},
-      note = {R package version 0.5.2},
+      note = {R package version 0.5.3},
       url = {https://tpetzoldt.github.io/biblioview/},
     }
