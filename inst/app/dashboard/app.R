@@ -14,69 +14,83 @@ ui <- dashboardPage(
   dashboardSidebar(
     width = 300,
     sidebarMenu(
-      div(style = "padding: 15px;",
-          textInput("group_id", "Zotero Group ID", value = ""),
-          passwordInput("api_key", "API Key", value = ""),
+      div(
+        style = "padding: 15px;",
+        textInput("group_id", "Zotero Group ID", value = ""),
+        passwordInput("api_key", "API Key", value = ""),
 
-          # Step 0: Scan Folders
-          actionButton("scan_btn", "0. Scan Folders", class = "btn-warning w-100"),
-          br(),
+        # Step 0: Scan Folders
+        actionButton("scan_btn", "0. Scan Folders", class = "btn-warning w-100"),
+        br(),
 
-          # Static selectizeInput (remains permanently bound in DOM so backspace/clear works cleanly)
-          selectizeInput("selected_folders", "Folders (Leave blank for all)",
-                         choices = NULL, multiple = TRUE,
-                         options = list(placeholder = 'Scan folders first...')),
-          br(),
+        # Static selectizeInput (remains permanently bound in DOM so backspace/clear works cleanly)
+        selectizeInput(
+          "selected_folders",
+          "Folders (Leave blank for all)",
+          choices = NULL,
+          multiple = TRUE,
+          options = list(placeholder = 'Scan folders first...')
+        ),
+        br(),
 
-          uiOutput("fetch_ui_container"),
-          br(),
+        uiOutput("fetch_ui_container"),
+        br(),
 
-          # Steps 1 and 2
-          uiOutput("citation_ui_container"),
+        # Steps 1 and 2
+        uiOutput("citation_ui_container"),
 
-          hr(),
+        hr(),
 
-          # Dynamic API Politeness Input Panel
-          # Only displays after initial setup is verified to avoid cluttering the login
-          uiOutput("polite_email_container"),
+        # Dynamic API Politeness Input Panel
+        # Only displays after initial setup is verified to avoid cluttering the login
+        uiOutput("polite_email_container"),
 
-          uiOutput("enrich_ui_container"),
+        uiOutput("enrich_ui_container"),
 
-          hr(),
+        hr(),
 
-          htmlOutput("status_text")
+        htmlOutput("status_text")
       ),
+
       # Lower persistent acknowledgement block
-      div(class = "sidebar-acknowledgments",
-          hr(style = "border-color: #4b646f; margin-bottom: 10px;"),
-          # Changed from p() to div() with explicit wrapping rules to guarantee text folds correctly
-          div("Powered by open scholarly infrastructure. Data retrieved and enriched via standard APIs from:",
-              style = "font-size: 0.85em; color: #8a979e; margin-bottom: 5px; white-space: normal; word-wrap: break-word; line-height: 1.3;"),
-          tags$ul(style = "font-size: 0.85em; color: #b8c7ce; padding-left: 15px; margin-bottom: 10px;",
-                  tags$li(
-                    tags$a(href = "https://www.zotero.org", target = "_blank", "Zotero", style = "color: #b8c7ce; text-decoration: underline;"),
-                    " (Group Libraries)"
-                  ),
-                  tags$li(
-                    tags$a(href = "https://www.crossref.org", target = "_blank", "Crossref", style = "color: #b8c7ce; text-decoration: underline;"),
-                    " (Metadata & Abstracts)"
-                  ),
-                  tags$li(
-                    tags$a(href = "https://openalex.org", target = "_blank", "OpenAlex", style = "color: #b8c7ce; text-decoration: underline;"),
-                    " (Abstracts and Citation Metrics)"
-                  ),
-                  tags$li(
-                    tags$a(href = "https://europepmc.org", target = "_blank", "Europe PMC", style = "color: #b8c7ce; text-decoration: underline;"),
-                    " (Open Life Science Index)"
-                  )
+      div(
+        class = "sidebar-acknowledgments",
+        hr(style = "border-color: #4b646f; margin-bottom: 10px;"),
+        div(
+          "Powered by open scholarly infrastructure. Data retrieved and enriched via standard APIs from:",
+          style = "font-size: 0.85em; color: #8a979e; margin-bottom: 5px; white-space: normal; word-wrap: break-word; line-height: 1.3;"
+        ),
+        tags$ul(
+          style = "font-size: 0.85em; color: #b8c7ce; padding-left: 15px; margin-bottom: 10px;",
+          tags$li(
+            tags$a(href = "https://www.zotero.org", target = "_blank", "Zotero", style = "color: #b8c7ce; text-decoration: underline;"),
+            " (Group Libraries)"
           ),
-          div(style = "font-size: 0.8em; color: #8a979e; display: flex; justify-content: space-between; padding: 0 5px;",
-              # Dynamically reads the active Version field from the DESCRIPTION file
-              span(paste0("v", utils::packageVersion("biblioview"), " | ", format(utils::packageDate("biblioview"), "%Y-%m-%d"))),
-              tags$a(href = "https://github.com/tpetzoldt/biblioview", target = "_blank",
-                     style = "color: #3d8d8d; text-decoration: underline;",
-                     tags$i(class = "fa fa-github", style = "color: #3d8d8d; text-decoration: underline;"), "https://github.com/tpetzoldt")
+          tags$li(
+            tags$a(href = "https://www.crossref.org", target = "_blank", "Crossref", style = "color: #b8c7ce; text-decoration: underline;"),
+            " (Metadata & Abstracts)"
+          ),
+          tags$li(
+            tags$a(href = "https://openalex.org", target = "_blank", "OpenAlex", style = "color: #b8c7ce; text-decoration: underline;"),
+            " (Abstracts and Citation Metrics)"
+          ),
+          tags$li(
+            tags$a(href = "https://europepmc.org", target = "_blank", "Europe PMC", style = "color: #b8c7ce; text-decoration: underline;"),
+            " (Open Life Science Index)"
           )
+        ),
+        div(
+          style = "font-size: 0.8em; color: #8a979e; display: flex; justify-content: space-between; padding: 0 5px;",
+          # Dynamically reads the active Version field from the DESCRIPTION file
+          span(paste0("v", utils::packageVersion("biblioview"), " | ", format(utils::packageDate("biblioview"), "%Y-%m-%d"))),
+          tags$a(
+            href = "https://github.com/tpetzoldt/biblioview",
+            target = "_blank",
+            style = "color: #3d8d8d; text-decoration: underline;",
+            tags$i(class = "fa fa-github", style = "color: #3d8d8d; text-decoration: underline;"),
+            "https://github.com/tpetzoldt"
+          )
+        )
       )
     )
   ),
@@ -118,11 +132,26 @@ ui <- dashboardPage(
         .main-sidebar, .content-wrapper, .main-footer, .right-side, .main-header .navbar {
           transition: transform 0.25s ease-in-out, margin-left 0.25s ease-in-out !important;
         }
+      ")),
+      tags$script(HTML("
+        $(document).on('click', '.expandable-cell', function() {
+          var fullText = decodeURIComponent($(this).attr('data-fulltext'));
+          var textType = $(this).attr('data-type');
+          Shiny.setInputValue('show_cell_modal', {
+            text: fullText,
+            type: textType,
+            nonce: Math.random() // Guarantees clicking the same item twice triggers Shiny
+          });
+        });
       "))
     ),
     fluidRow(
-      box(width = 12, title = "Searchable Reference Database", solidHeader = TRUE, status = "primary",
-          DTOutput("bib_table")
+      box(
+        width = 12,
+        title = "Searchable Reference Database",
+        solidHeader = TRUE,
+        status = "primary",
+        DTOutput("bib_table")
       )
     )
   )
@@ -148,7 +177,6 @@ server <- function(input, output, session) {
     }
     return(df)
   }
-
 
   # ----------------------------------------------------------------------------
 
@@ -222,30 +250,19 @@ server <- function(input, output, session) {
           this_key  <- level_nodes$key[i]
           this_name <- level_nodes$name[i]
 
-          # Create a prefix using regular text dashes (e.g., "- Subfolder" or "-- Grandchild")
           prefix <- if (depth > 0) {
-            # Creates a modern "└─ " or "  └─ " nesting marker
             indent <- paste0(rep("\u00a0\u00a0", depth - 1), collapse = "")
             paste0(indent, "\u2514\u2500\u00a0")
           } else {
             ""
           }
 
-          # Alternative: Open circle prefix
-          # prefix <- if (depth > 0) {
-          #   indent <- paste0(rep("\u00a0\u00a0", depth), collapse = "")
-          #   paste0(indent, "\u25e6\u00a0")
-          # } else {
-          #   ""
-          # }
-
-
           display_label <- paste0(prefix, this_name)
 
           # Store the item (UI display text = hidden API hash key value)
           hierarchical_choices <<- c(hierarchical_choices, stats::setNames(this_key, display_label))
 
-          # Instantly descend to process any children belonging beneath this folder before moving to the next sibling
+          # Instantly descend to process any children belonging beneath this folder
           build_branch(current_parent = this_key, depth = depth + 1)
         }
       }
@@ -264,10 +281,12 @@ server <- function(input, output, session) {
 
       # Update choices in the persistent input box cleanly
       selected_val <- if (!is.null(matched_keys)) matched_keys else character(0)
-      updateSelectizeInput(session, "selected_folders",
-                           choices = choices_to_use,
-                           selected = selected_val,
-                           options = list(placeholder = 'Select one or more folders'))
+      updateSelectizeInput(
+        session, "selected_folders",
+        choices = choices_to_use,
+        selected = selected_val,
+        options = list(placeholder = 'Select one or more folders')
+      )
     })
 
     return(matched_keys)
@@ -279,10 +298,10 @@ server <- function(input, output, session) {
   observe({
     req(!url_processed()) # Executes strictly once at initial session startup
 
-    # 1. Capture URL query strings (Primary for Shiny Server deployments)
+    # 1. Capture URL query strings
     query <- parseQueryString(session$clientData$url_search)
 
-    # 2. Capture R global options (Primary for local launch_dashboard() function)
+    # 2. Capture R global options
     opt_group  <- getOption("biblioview.group",  default = "")
     opt_key    <- getOption("biblioview.key",    default = "")
     opt_title  <- getOption("biblioview.title",  default = "")
@@ -368,16 +387,15 @@ server <- function(input, output, session) {
   output$polite_email_container <- renderUI({
     if (is.null(current_dataset())) return(NULL)
 
-    # Use environment variable or hard-code default email address on your server
     default_email <- Sys.getenv("POLITE_EMAIL")
 
     tagList(
       textInput("polite_email", "API Contact Email (Optional)", value = default_email),
-      # Added explicit wrapping rules directly onto the list element
-      tags$ul(class = "help-block-polite",
-              style = "padding-left: 15px; margin-top: 5px; white-space: normal; word-wrap: break-word; line-height: 1.3;",
-              tags$li("Providing a valid email address is polite open-access etiquette."),
-              tags$li("Speedup due to access to the higher-priority OpenAlex Polite Pool.")
+      tags$ul(
+        class = "help-block-polite",
+        style = "padding-left: 15px; margin-top: 5px; white-space: normal; word-wrap: break-word; line-height: 1.3;",
+        tags$li("Providing a valid email address is polite open-access etiquette."),
+        tags$li("Speedup due to access to the higher-priority OpenAlex Polite Pool.")
       ),
       br()
     )
@@ -388,21 +406,16 @@ server <- function(input, output, session) {
     df <- current_dataset()
     req(df)
 
-    # 1. Pull the raw UI string (or default to empty if the UI component isn't rendered yet)
     ui_email <- if (!is.null(input$polite_email)) trimws(input$polite_email) else ""
-
-    # 2. Fallback cascade: Use UI string if filled; otherwise drop back to system environment
     user_email <- if (ui_email != "") ui_email else Sys.getenv("POLITE_EMAIL")
 
     withProgress(message = 'Retrieving OpenAlex metrics...', value = 0.5, {
-      # Passes the safely resolved email down into the package logic
       df <- biblioview::fetch_citation_counts(df, email = user_email)
       current_dataset(df)
     })
   })
 
   # --- STEP 3 EXECUTION: MODAL INTERCEPT & ABSTRACT ENRICHMENT ---
-  # Intercept the primary click to spawn the safety dialog box layout
   observeEvent(input$enrich_btn, {
     req(current_dataset())
 
@@ -428,9 +441,8 @@ server <- function(input, output, session) {
     ))
   })
 
-  # Actual execution trigger linked inside the modal confirmation action handle
   observeEvent(input$confirm_enrich_btn, {
-    removeModal() # Clear the overlay box away immediately
+    removeModal()
     df <- current_dataset()
     req(df)
 
@@ -470,6 +482,30 @@ server <- function(input, output, session) {
     } else {
       status_msg
     }
+  })
+
+  observeEvent(input$show_cell_modal, {
+    req(input$show_cell_modal$text)
+
+    cell_text <- input$show_cell_modal$text
+    cell_type <- input$show_cell_modal$type
+
+    showModal(modalDialog(
+      title = paste("Full", cell_type),
+      div(
+        style = "max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-size: 14px; background: #f8f9fa; padding: 15px; border-radius: 5px;",
+        cell_text
+      ),
+      easyClose = TRUE,
+      footer = tagList(
+        tags$button(
+          class = "btn btn-info",
+          onclick = sprintf("navigator.clipboard.writeText(%s); alert('Copied to clipboard!');", jsonlite::toJSON(cell_text)),
+          icon("copy"), " Copy Text"
+        ),
+        modalButton("Close")
+      )
+    ))
   })
 }
 

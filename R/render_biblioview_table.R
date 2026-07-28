@@ -23,8 +23,8 @@ render_biblioview_table <- function(df, title = "export", show_buttons = TRUE) {
       render = DT::JS(
         "function(data, type, row) {",
         "  if (type === 'display' && data !== null && data.length > 140) {",
-        "    var cleanText = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
-        "    return '<span title=\"' + cleanText + '\">' + data.substring(0, 140) + '...</span>';",
+        "    var cleanTooltip = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
+        "    return '<span class=\"expandable-cell\" title=\"' + cleanTooltip + '\" data-fulltext=\"' + encodeURIComponent(data) + '\" data-type=\"Abstract\" style=\"border-bottom: 1px dashed #6c757d; cursor: pointer;\">' + data.substring(0, 140) + '... 🔍</span>';",
         "  }",
         "  return data;",
         "}"
@@ -39,15 +39,14 @@ render_biblioview_table <- function(df, title = "export", show_buttons = TRUE) {
       render = DT::JS(
         "function(data, type, row) {",
         "  if (type === 'display' && data !== null && data.length > 90) {",
-        "    var cleanText = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
-        "    return '<span title=\"' + cleanText + '\">' + data.substring(0, 90) + '...</span>';",
+        "    var cleanTooltip = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
+        "    return '<span class=\"expandable-cell\" title=\"' + cleanTooltip + '\" data-fulltext=\"' + encodeURIComponent(data) + '\" data-type=\"Note\" style=\"border-bottom: 1px dashed #6c757d; cursor: pointer;\">' + data.substring(0, 90) + '... 🔍</span>';",
         "  }",
         "  return data;",
         "}"
       )
     )
   }
-
   dom_str <- if (show_buttons) 'Blfrtip' else 'lfrtip'
 
   # Set up datatable arguments dynamically to avoid 'extensions' error

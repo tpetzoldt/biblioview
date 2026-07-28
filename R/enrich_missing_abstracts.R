@@ -4,24 +4,39 @@
 #' @param email_contact Character. A valid email address used for the polite API pool.
 #'   Defaults to the environment variable `POLITE_EMAIL`.
 #'
-#' @importFrom utils URLencode
+#' @import httr2
 #'
 #' @export
 enrich_missing_abstracts <- function(df, email_contact = Sys.getenv("POLITE_EMAIL")) {
 
   if (email_contact == "") {
     warning("No valid email provided for the polite API pool. Requests may be throttled.")
-    email_contact <- "anonymous@example.com" # Fallback minimum string
+    email_contact <- "anonymous@example.com"
   } else {
     cat("Email set to", email_contact, "\n")
   }
 
   cat("Starting abstract enrichment process...\n")
 
-  for (i in 1:nrow(df)) {
+  # Setup reusable httr2 request template with 429 retry handling
+  base_req <- httr2::request("https://localhost") |>
+    httr2::req_user_agent(paste0("mailto:", email_contact)) |>
+    httr2::req_retry(
+      max_tries = 3,
+      backoff = ~ 2,
+      is_transient = function(resp) {
+        httr2::resp_status(resp) %in% c(429, 500, 502, 503)
+      }
+    ) |>
+    httr2::req_error(is_error = function(resp) FALSE)
+
+  for (i in seq_len(nrow(df))) {
     if (is.na(df$Abstract[i]) || trimws(df$Abstract[i]) == "") {
 
-      raw_doi <- sub("^https://doi.org/", "", df$DOI[i])
+      # Clean DOI: trim whitespaces and remove prefixes
+      raw_doi <- trimws(df$DOI[i])
+      raw_doi <- sub("^https?://(dx\\.)?doi\\.org/", "", raw_doi)
+
       if (!grepl("^10\\.", raw_doi)) next
 
       message(paste("Row", i, "- Attempting to fetch abstract for DOI:", raw_doi))
@@ -29,59 +44,43 @@ enrich_missing_abstracts <- function(df, email_contact = Sys.getenv("POLITE_EMAI
       abstract_found <- FALSE
 
       # =========================================================================
-      # LAYER 1: TRY CROSSREF
+      # LAYER 1: TRY OPENALEX (Uses doi: prefix instead of nested https://)
       # =========================================================================
-      crossref_url <- paste0("https://api.crossref.org/works/", URLencode(raw_doi, reserved = TRUE))
-      cr_res <- httr::GET(crossref_url, httr::user_agent(paste0("mailto:", email_contact)))
+      oa_req <- base_req |>
+        httr2::req_url(paste0("https://api.openalex.org/works/doi:", raw_doi))
 
-      if (httr::status_code(cr_res) == 200) {
-        cr_data <- jsonlite::fromJSON(httr::content(cr_res, "text", encoding = "UTF-8"), simplifyVector = FALSE)
-        cr_abstract <- cr_data$message$abstract
-        if (!is.null(cr_abstract) && nzchar(trimws(cr_abstract))) {
-          df$Abstract[i] <- trimws(gsub("<[^>]+>", "", cr_abstract))
-          abstract_found <- TRUE
-          message("  -> Success! Abstract retrieved from Crossref.")
-        }
-      }
+      oa_res <- httr2::req_perform(oa_req)
 
-      # =========================================================================
-      # LAYER 2: TRY OPENALEX
-      # =========================================================================
-      if (!abstract_found) {
-        openalex_url <- paste0("https://api.openalex.org/works/https://doi.org/", raw_doi)
-        oa_res <- httr::GET(openalex_url, httr::user_agent(paste0("mailto:", email_contact)))
+      if (httr2::resp_status(oa_res) == 200) {
+        oa_data <- httr2::resp_body_json(oa_res, simplifyVector = FALSE)
+        inv_index <- oa_data$abstract_inverted_index
 
-        if (httr::status_code(oa_res) == 200) {
-          oa_data <- jsonlite::fromJSON(httr::content(oa_res, "text", encoding = "UTF-8"), simplifyVector = FALSE)
-          inv_index <- oa_data$abstract_inverted_index
-
-          # SAFETY CHECK: Ensure the index actually contains data before building the vector
-          if (!is.null(inv_index) && length(inv_index) > 0 && length(unlist(inv_index)) > 0) {
-
-            word_list <- vector("character", length = max(unlist(inv_index)) + 1)
-            for (word in names(inv_index)) {
-              word_list[unlist(inv_index[[word]]) + 1] <- word
-            }
-            df$Abstract[i] <- trimws(paste(word_list, collapse = " "))
-            abstract_found <- TRUE
-            message("  -> Success! Abstract retrieved from OpenAlex.")
+        if (!is.null(inv_index) && length(inv_index) > 0 && length(unlist(inv_index)) > 0) {
+          word_list <- vector("character", length = max(unlist(inv_index)) + 1)
+          for (word in names(inv_index)) {
+            word_list[unlist(inv_index[[word]]) + 1] <- word
           }
+          df$Abstract[i] <- trimws(paste(word_list, collapse = " "))
+          abstract_found <- TRUE
+          message("  -> Success! Abstract retrieved from OpenAlex.")
         }
       }
 
       # =========================================================================
-      # LAYER 3: TRY EUROPE PMC (Excellent for Environmental & Agri Science)
+      # LAYER 2: TRY EUROPE PMC
       # =========================================================================
       if (!abstract_found) {
-        # Europe PMC query matching the exact DOI format
-        epmc_url <- paste0("https://www.ebi.ac.uk/europepmc/webservices/rest/search",
-                           "?query=doi:", URLencode(raw_doi, reserved = TRUE),
-                           "&format=json")
+        epmc_req <- base_req |>
+          httr2::req_url("https://www.ebi.ac.uk/europepmc/webservices/rest/search") |>
+          httr2::req_url_query(
+            query = paste0("doi:", raw_doi),
+            format = "json"
+          )
 
-        epmc_res <- httr::GET(epmc_url, httr::user_agent(paste0("mailto:", email_contact)))
+        epmc_res <- httr2::req_perform(epmc_req)
 
-        if (httr::status_code(epmc_res) == 200) {
-          epmc_data <- jsonlite::fromJSON(httr::content(epmc_res, "text", encoding = "UTF-8"), simplifyVector = FALSE)
+        if (httr2::resp_status(epmc_res) == 200) {
+          epmc_data <- httr2::resp_body_json(epmc_res, simplifyVector = FALSE)
           results   <- epmc_data$resultList$result
 
           if (length(results) > 0) {
@@ -95,12 +94,31 @@ enrich_missing_abstracts <- function(df, email_contact = Sys.getenv("POLITE_EMAI
         }
       }
 
-      # Output status if completely missing across all repositories
+      # =========================================================================
+      # LAYER 3: TRY CROSSREF
+      # =========================================================================
+      if (!abstract_found) {
+        cr_req <- base_req |>
+          httr2::req_url(paste0("https://api.crossref.org/works/", raw_doi))
+
+        cr_res <- httr2::req_perform(cr_req)
+
+        if (httr2::resp_status(cr_res) == 200) {
+          cr_data <- httr2::resp_body_json(cr_res, simplifyVector = FALSE)
+          cr_abstract <- cr_data$message$abstract
+          if (!is.null(cr_abstract) && nzchar(trimws(cr_abstract))) {
+            df$Abstract[i] <- trimws(gsub("<[^>]+>", "", cr_abstract))
+            abstract_found <- TRUE
+            message("  -> Success! Abstract retrieved from Crossref.")
+          }
+        }
+      }
+
       if (!abstract_found) {
         message("  -> Could not locate abstract in any metadata repository.")
       }
 
-      Sys.sleep(0.2) # Polite API cooldown pacing
+      Sys.sleep(0.1)
     }
   }
 
