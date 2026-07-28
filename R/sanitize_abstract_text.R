@@ -5,12 +5,13 @@
 #'
 #' @param text Character string containing raw abstract text.
 #' @return Cleaned character string.
+#' @keywords internal
 sanitize_abstract_text <- function(text) {
   if (is.null(text) || !nzchar(text)) return(NULL)
 
   clean <- text
 
-  # 1. Standardize line breaks and double spaces
+  # 1. Standardize line breaks and non-breaking spaces
   clean <- gsub("\r\n|\r", "\n", clean)
   clean <- gsub("&nbsp;", " ", clean, fixed = TRUE)
 
@@ -26,7 +27,7 @@ sanitize_abstract_text <- function(text) {
   clean <- gsub("<sub>(.*?)</sub>", "\\1", clean, ignore.case = TRUE)
   clean <- gsub("<sup>(.*?)</sup>", "\\1", clean, ignore.case = TRUE)
 
-  # 4. Strip any remaining HTML/XML tags safely using rvest/xml2 if available,
+  # 4. Strip any remaining HTML/XML tags safely
   # or fallback to regex if not.
   if (requireNamespace("rvest", quietly = TRUE)) {
     clean <- tryCatch({

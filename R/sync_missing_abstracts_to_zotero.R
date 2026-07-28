@@ -1,12 +1,61 @@
+#' Clean and Sanitize Abstract Text
+#'
+#' Strips or converts HTML/XML markup (like sub/sup tags and JATS math)
+#' into clean plain text for Zotero notes.
+#'
+#' @param text Character string containing raw abstract text.
+#' @return Cleaned character string.
+#' @keywords internal
+sanitize_abstract_text <- function(text) {
+  if (is.null(text) || !nzchar(text)) return(NULL)
+
+  clean <- text
+
+  # 1. Standardize line breaks and non-breaking spaces
+  clean <- gsub("\r\n|\r", "\n", clean)
+  clean <- gsub("&nbsp;", " ", clean, fixed = TRUE)
+
+  # 2. Handle XML/JATS math & formula tags before stripping HTML
+  clean <- gsub("<inline-formula>.*?</inline-formula>", "[formula]", clean, ignore.case = TRUE)
+  clean <- gsub("</?sub-script>", "", clean, ignore.case = TRUE)
+  clean <- gsub("</?super-script>", "", clean, ignore.case = TRUE)
+
+  # 3. Convert sub/sup tags to plain text (e.g., H<sub>2</sub>O -> H2O)
+  clean <- gsub("<sub>(.*?)</sub>", "\\1", clean, ignore.case = TRUE)
+  clean <- gsub("<sup>(.*?)</sup>", "\\1", clean, ignore.case = TRUE)
+
+  # 4. Strip any remaining HTML/XML tags safely
+  if (requireNamespace("rvest", quietly = TRUE)) {
+    clean <- tryCatch({
+      clean |>
+        xml2::read_html() |>
+        rvest::html_text2()
+    }, error = function(e) {
+      gsub("<[^>]+>", "", clean)
+    })
+  } else {
+    clean <- gsub("<[^>]+>", "", clean)
+  }
+
+  # 5. Clean up extra whitespace created by tag removal
+  clean <- gsub("[ \t]+", " ", clean)
+  clean <- trimws(clean)
+
+  return(clean)
+}
+
 #' Sync Missing Abstracts Back to Zotero API
 #'
 #' Scans a Zotero group library (or specific collections) for top-level items
-#' missing abstracts, fetches them from external APIs, and writes them back to Zotero.
+#' missing abstracts, fetches them from external APIs, sanitizes formatting,
+#' and writes them back to Zotero.
 #'
 #' @param group_id Character or Numeric. The Zotero Group ID.
 #' @param api_key Character. A Zotero API key with **write access** to the group.
 #' @param collections Character vector (optional). One or more Zotero folder/collection names.
 #'   If NULL (default), scans the entire group library.
+#' @param force_overwrite Logical. If TRUE, re-fetches and overwrites pre-existing abstracts.
+#'   Defaults to FALSE.
 #' @param email_contact Character. Contact email used for polite external API pools.
 #'   Defaults to environment variable `POLITE_EMAIL`.
 #' @param providers Named list of provider functions passed to external APIs.
@@ -17,6 +66,7 @@
 sync_missing_abstracts_to_zotero <- function(group_id,
                                              api_key,
                                              collections = NULL,
+                                             force_overwrite = FALSE,
                                              email_contact = Sys.getenv("POLITE_EMAIL"),
                                              providers = list(
                                                epmc     = fetch_abstract_epmc,
@@ -75,7 +125,6 @@ sync_missing_abstracts_to_zotero <- function(group_id,
   limit <- 100
   more_results <- TRUE
 
-  # We fetch '/items/top' so we don't count attachments/notes
   base_items_url <- paste0("https://api.zotero.org/groups/", group_id, "/items/top")
 
   while (more_results) {
@@ -93,7 +142,6 @@ sync_missing_abstracts_to_zotero <- function(group_id,
     batch <- httr2::resp_body_json(z_res, simplifyVector = FALSE)
     all_items <- c(all_items, batch)
 
-    # If the returned batch size is less than our limit, we reached the end
     if (length(batch) < limit) {
       more_results <- FALSE
     } else {
@@ -130,8 +178,9 @@ sync_missing_abstracts_to_zotero <- function(group_id,
     )))
   }
 
-  # Identify pre-existing vs missing abstracts
+  # 4. Identify pre-existing vs missing abstracts based on `force_overwrite`
   has_abstract <- function(x) {
+    if (force_overwrite) return(FALSE) # Force all records into the missing/enrichment queue
     !is.null(x$data$abstractNote) && nzchar(trimws(x$data$abstractNote))
   }
 
@@ -147,12 +196,12 @@ sync_missing_abstracts_to_zotero <- function(group_id,
   if (n_missing == 0) {
     cat(sprintf("✓ All %d records in scope already have abstracts!\n", total_records))
   } else {
-    cat(sprintf("Found %d records with DOIs. %d already have abstracts, %d need enrichment...\n",
+    cat(sprintf("Found %d records with DOIs. %d kept as-is, %d scheduled for enrichment...\n",
                 total_records, n_preexisting, n_missing))
 
     base_req <- build_base_req(email_contact)
 
-    # 4. Enrich missing abstracts
+    # 5. Enrich missing/overwritten abstracts
     for (item in missing_items) {
       item_key     <- item$key
       item_version <- item$version
@@ -169,10 +218,10 @@ sync_missing_abstracts_to_zotero <- function(group_id,
       # Query external providers
       for (provider_name in names(providers)) {
         fetcher_fn <- providers[[provider_name]]
-        fraw_abstract <- fetcher_fn(clean_doi, base_req)
+        raw_abstract <- fetcher_fn(clean_doi, base_req)
 
         if (!is.null(raw_abstract) && nzchar(trimws(raw_abstract))) {
-          # SANITIZE HERE: Clean tags and chemical formula tags
+          # Clean HTML/XML tags and chemical formulas
           fetched_abstract <- sanitize_abstract_text(raw_abstract)
           successful_source <- provider_name
           message(sprintf("  -> Abstract found via %s!", provider_name))
@@ -219,7 +268,7 @@ sync_missing_abstracts_to_zotero <- function(group_id,
 
   n_still_empty <- total_records - (n_preexisting + n_retrieved)
 
-  # 5. Construct summary stats
+  # 6. Construct summary stats
   summary_stats <- list(
     n_records           = total_records,
     n_preexisting       = n_preexisting,
@@ -235,8 +284,9 @@ sync_missing_abstracts_to_zotero <- function(group_id,
   if (!is.null(collections)) {
     cat(sprintf("Folders Scoped:                     %s\n", paste(collections, collapse = ", ")))
   }
+  cat(sprintf("Force Overwrite Mode:               %s\n", ifelse(force_overwrite, "ENABLED", "DISABLED")))
   cat(sprintf("Total Records Evaluated (with DOIs): %d\n", summary_stats$n_records))
-  cat(sprintf("Pre-existing Abstracts:             %d\n", summary_stats$n_preexisting))
+  cat(sprintf("Pre-existing Abstracts Kept:        %d\n", summary_stats$n_preexisting))
   cat(sprintf("Newly Retrieved & Written:          %d\n", summary_stats$n_retrieved))
 
   for (src in names(summary_stats$retrieved_by_source)) {
