@@ -17,7 +17,7 @@ sync_missing_abstracts_to_zotero(
 \arguments{
 \item{group_id}{Character or Numeric. The Zotero Group ID.}
 
-\item{api_key}{Character. A Zotero API key with \strong{write access} to the group.}
+\item{api_key}{Character. A Zotero API key with write access to the group.}
 
 \item{collections}{Character vector (optional). One or more Zotero folder/collection names.
 If NULL (default), scans the entire group library.}

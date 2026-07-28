@@ -5,7 +5,7 @@
 #' and writes them back to Zotero.
 #'
 #' @param group_id Character or Numeric. The Zotero Group ID.
-#' @param api_key Character. A Zotero API key with **write access** to the group.
+#' @param api_key Character. A Zotero API key with write access to the group.
 #' @param collections Character vector (optional). One or more Zotero folder/collection names.
 #'   If NULL (default), scans the entire group library.
 #' @param force_overwrite Logical. If TRUE, re-fetches and overwrites pre-existing abstracts.
@@ -34,9 +34,9 @@ sync_missing_abstracts_to_zotero <- function(group_id,
 
   target_collection_keys <- NULL
 
-  # 1. Resolve folder names AND subcollections to Collection Keys if specified
+  # 1. Resolve folder names AND subcollections recursively
   if (!is.null(collections) && length(collections) > 0) {
-    cat("Resolving folder names and subcollections to Zotero collection keys...\n")
+    cat("Resolving folder hierarchy from Zotero API...\n")
 
     coll_url <- paste0("https://api.zotero.org/groups/", group_id, "/collections")
     coll_req <- httr2::request(coll_url) |>
@@ -56,83 +56,110 @@ sync_missing_abstracts_to_zotero <- function(group_id,
                      paste(collections, collapse = ", ")))
       }
 
-      # Gather target collection keys PLUS any subcollections under them
-      parent_keys <- sapply(matched_colls, function(x) x$key)
-      all_target_keys <- parent_keys
+      get_all_children <- function(parent_keys, coll_list) {
+        children <- Filter(function(x) {
+          !is.null(x$data$parentCollection) && x$data$parentCollection %in% parent_keys
+        }, coll_list)
 
-      # Include subcollections
-      for (coll in all_colls) {
-        if (!is.null(coll$data$parentCollection) && coll$data$parentCollection %in% parent_keys) {
-          all_target_keys <- c(all_target_keys, coll$key)
-        }
+        if (length(children) == 0) return(character(0))
+        child_keys <- sapply(children, function(x) x$key)
+        return(c(child_keys, get_all_children(child_keys, coll_list)))
       }
 
-      target_collection_keys <- unique(all_target_keys)
-      cat(sprintf("✓ Scoping sync to folder(s) + subfolders (%d keys matched)\n", length(target_collection_keys)))
+      parent_keys <- sapply(matched_colls, function(x) x$key)
+      all_child_keys <- get_all_children(parent_keys, all_colls)
+      target_collection_keys <- unique(c(parent_keys, all_child_keys))
+
+      cat(sprintf("✓ Scoped to folder(s) + descendants (%d collection keys matched)\n",
+                  length(target_collection_keys)))
     } else {
       stop("Failed to fetch collections from Zotero API. Check your permissions.")
     }
   }
 
-  cat("Fetching library metadata from Zotero Group:", group_id, "...\n")
+  # 2. Fetch items using deterministic sorting and itemType exclusions
+  # 2. Fetch items using deterministic sorting
+  fetch_zotero_endpoint <- function(endpoint_url) {
+    items <- list()
+    start_index <- 0
+    limit <- 100
+    total_expected <- Inf
 
-  # 2. Fetch ALL top-level items using Zotero's Total-Results header
-  all_items <- list()
-  start_index <- 0
-  limit <- 100
-  total_library_items <- Inf
+    while (length(items) < total_expected) {
+      z_req <- httr2::request(endpoint_url) |>
+        httr2::req_headers(`Zotero-API-Key` = api_key) |>
+        httr2::req_url_query(
+          format    = "json",
+          limit     = limit,
+          start     = start_index,
+          sort      = "dateAdded",    # Keep deterministic pagination
+          direction = "asc"
+        ) |>
+        httr2::req_error(is_error = function(resp) FALSE)
 
-  base_items_url <- paste0("https://api.zotero.org/groups/", group_id, "/items/top")
+      z_res <- httr2::req_perform(z_req)
 
-  while (length(all_items) < total_library_items) {
-    z_req <- httr2::request(base_items_url) |>
-      httr2::req_headers(`Zotero-API-Key` = api_key) |>
-      httr2::req_url_query(format = "json", limit = limit, start = start_index) |>
-      httr2::req_error(is_error = function(resp) FALSE)
+      if (httr2::resp_status(z_res) != 200) {
+        stop(sprintf("Failed to connect to Zotero API (Status: %d). Check your Group ID and API key permissions.",
+                     httr2::resp_status(z_res)))
+      }
 
-    z_res <- httr2::req_perform(z_req)
+      headers <- httr2::resp_headers(z_res)
+      if (!is.null(headers[["total-results"]])) {
+        total_expected <- as.numeric(headers[["total-results"]])
+      }
 
-    if (httr2::resp_status(z_res) != 200) {
-      stop("Failed to connect to Zotero API. Check your Group ID and API key permissions.")
+      batch <- httr2::resp_body_json(z_res, simplifyVector = FALSE)
+      if (length(batch) == 0) break
+
+      items <- c(items, batch)
+      start_index <- start_index + length(batch)
     }
 
-    # Extract Total-Results header from Zotero to know the exact total count
-    headers <- httr2::resp_headers(z_res)
-    if (!is.null(headers[["total-results"]])) {
-      total_library_items <- as.numeric(headers[["total-results"]])
-    }
+    # Filter out attachment and note item types in R safely
+    clean_items <- Filter(function(x) {
+      itype <- x$data$itemType
+      !is.null(itype) && !itype %in% c("attachment", "note")
+    }, items)
 
-    batch <- httr2::resp_body_json(z_res, simplifyVector = FALSE)
-
-    if (length(batch) == 0) break
-
-    all_items <- c(all_items, batch)
-    start_index <- start_index + length(batch)
-
-    cat(sprintf("  -> Fetched %d / %d items...\n", length(all_items), total_library_items))
+    return(clean_items)
   }
 
-  cat(sprintf("✓ Successfully fetched all %d items across all pages.\n", length(all_items)))
+  all_items <- list()
 
-  # 3. Filter items using the robust extract_doi() function
-  valid_items <- Filter(function(x) {
-    data <- x$data
-    doi  <- extract_doi(data)
-    has_valid_doi <- !is.null(doi)
-
-    in_target_scope <- TRUE
-    if (!is.null(target_collection_keys)) {
-      item_colls <- unlist(data$collections)
-      in_target_scope <- any(target_collection_keys %in% item_colls)
+  if (!is.null(target_collection_keys)) {
+    for (ckey in target_collection_keys) {
+      coll_endpoint <- paste0("https://api.zotero.org/groups/", group_id, "/collections/", ckey, "/items/top")
+      fetched <- fetch_zotero_endpoint(coll_endpoint)
+      all_items <- c(all_items, fetched)
     }
+    # Deduplicate items in case of multi-collection assignment
+    item_keys <- sapply(all_items, function(x) x$key)
+    all_items <- all_items[!duplicated(item_keys)]
+  } else {
+    base_items_url <- paste0("https://api.zotero.org/groups/", group_id, "/items/top")
+    all_items <- fetch_zotero_endpoint(base_items_url)
+  }
 
-    return(has_valid_doi && in_target_scope)
-  }, all_items)
+  total_fetched_raw <- length(all_items)
+  cat(sprintf("✓ Successfully retrieved %d top-level bibliographic items.\n", total_fetched_raw))
+
+  # 3. Categorize items with and without DOIs
+  valid_items <- Filter(function(x) !is.null(extract_doi(x$data)), all_items)
+  no_doi_items <- Filter(function(x) is.null(extract_doi(x$data)), all_items)
 
   total_records <- length(valid_items)
 
+  if (length(no_doi_items) > 0) {
+    cat(sprintf("\nℹ %d items skipped (no DOI found in 'DOI' or 'Extra' fields):\n", length(no_doi_items)))
+    for (ndi in no_doi_items) {
+      title_str <- ifelse(!is.null(ndi$data$title), substr(ndi$data$title, 1, 40), "[No Title]")
+      cat(sprintf("   - Key: %s | Title: %s...\n", ndi$key, title_str))
+    }
+  }
+
   if (total_records == 0) {
-    cat("✓ No matching items with valid DOIs found for this scope.\n")
+    cat("✓ No items with valid DOIs found for this scope.\n")
     return(invisible(list(
       n_records = 0,
       n_preexisting = 0,
@@ -144,7 +171,7 @@ sync_missing_abstracts_to_zotero <- function(group_id,
 
   # 4. Identify pre-existing vs missing abstracts based on `force_overwrite`
   has_abstract <- function(x) {
-    if (force_overwrite) return(FALSE) # Force all records into the missing/enrichment queue
+    if (force_overwrite) return(FALSE)
     !is.null(x$data$abstractNote) && nzchar(trimws(x$data$abstractNote))
   }
 
@@ -158,9 +185,9 @@ sync_missing_abstracts_to_zotero <- function(group_id,
   n_retrieved   <- 0
 
   if (n_missing == 0) {
-    cat(sprintf("✓ All %d records in scope already have abstracts!\n", total_records))
+    cat(sprintf("\n✓ All %d records with DOIs already have abstracts!\n", total_records))
   } else {
-    cat(sprintf("Found %d records with DOIs. %d kept as-is, %d scheduled for enrichment...\n",
+    cat(sprintf("\nFound %d records with DOIs. %d kept as-is, %d scheduled for enrichment...\n",
                 total_records, n_preexisting, n_missing))
 
     base_req <- build_base_req(email_contact)
@@ -169,7 +196,7 @@ sync_missing_abstracts_to_zotero <- function(group_id,
     for (item in missing_items) {
       item_key     <- item$key
       item_version <- item$version
-      raw_doi      <- trimws(item$data$DOI)
+      raw_doi      <- extract_doi(item$data)
       clean_doi    <- sub("^https?://(dx\\.)?doi\\.org/", "", raw_doi)
 
       if (!grepl("^10\\.", clean_doi)) next
@@ -179,13 +206,11 @@ sync_missing_abstracts_to_zotero <- function(group_id,
       fetched_abstract <- NULL
       successful_source <- NULL
 
-      # Query external providers
       for (provider_name in names(providers)) {
         fetcher_fn <- providers[[provider_name]]
         raw_abstract <- fetcher_fn(clean_doi, base_req)
 
         if (!is.null(raw_abstract) && nzchar(trimws(raw_abstract))) {
-          # Clean HTML/XML tags and chemical formulas
           fetched_abstract <- sanitize_abstract_text(raw_abstract)
           successful_source <- provider_name
           message(sprintf("  -> Abstract found via %s!", provider_name))
@@ -193,13 +218,10 @@ sync_missing_abstracts_to_zotero <- function(group_id,
         }
       }
 
-      # Write back to Zotero via PATCH if found
       if (!is.null(fetched_abstract)) {
         patch_url <- paste0("https://api.zotero.org/groups/", group_id, "/items/", item_key)
 
-        patch_body <- list(
-          abstractNote = fetched_abstract
-        )
+        patch_body <- list(abstractNote = fetched_abstract)
 
         patch_req <- httr2::request(patch_url) |>
           httr2::req_headers(
@@ -232,7 +254,6 @@ sync_missing_abstracts_to_zotero <- function(group_id,
 
   n_still_empty <- total_records - (n_preexisting + n_retrieved)
 
-  # 6. Construct summary stats
   summary_stats <- list(
     n_records           = total_records,
     n_preexisting       = n_preexisting,
@@ -241,7 +262,6 @@ sync_missing_abstracts_to_zotero <- function(group_id,
     n_still_empty       = n_still_empty
   )
 
-  # Print summary report
   cat("\n==================================================\n")
   cat("          ZOTERO ABSTRACT SYNC SUMMARY            \n")
   cat("==================================================\n")
@@ -249,6 +269,8 @@ sync_missing_abstracts_to_zotero <- function(group_id,
     cat(sprintf("Folders Scoped:                     %s\n", paste(collections, collapse = ", ")))
   }
   cat(sprintf("Force Overwrite Mode:               %s\n", ifelse(force_overwrite, "ENABLED", "DISABLED")))
+  cat(sprintf("Total Top-Level Items Fetched:      %d\n", total_fetched_raw))
+  cat(sprintf("Items Lacking DOIs (Skipped):       %d\n", length(no_doi_items)))
   cat(sprintf("Total Records Evaluated (with DOIs): %d\n", summary_stats$n_records))
   cat(sprintf("Pre-existing Abstracts Kept:        %d\n", summary_stats$n_preexisting))
   cat(sprintf("Newly Retrieved & Written:          %d\n", summary_stats$n_retrieved))
@@ -259,6 +281,53 @@ sync_missing_abstracts_to_zotero <- function(group_id,
 
   cat(sprintf("Remaining Empty Abstracts:          %d\n", summary_stats$n_still_empty))
   cat("==================================================\n\n")
+
+
+
+  # Quick Pipeline Audit Script
+  cat("\n=== PIPELINE AUDIT ===\n")
+  cat("1. Total raw items fetched from API:  ", length(all_items), "\n")
+
+  # Step A: Filter non-bibliographic items
+  bib_items <- Filter(function(x) {
+    itype <- x$data$itemType
+    !is.null(itype) && !itype %in% c("attachment", "note")
+  }, all_items)
+  cat("2. Bibliographic items remaining:    ", length(bib_items), "\n")
+
+  # Step B: Filter items with DOIs (checking extract_doi)
+  doi_items <- Filter(function(x) !is.null(extract_doi(x$data)), bib_items)
+  cat("3. Items with valid DOIs found:      ", length(doi_items), "\n")
+
+  # Step C: Check abstract status breakdown
+  items_with_abstract <- Filter(function(x) {
+    abs <- x$data$abstractNote
+    !is.null(abs) && nzchar(trimws(abs))
+  }, doi_items)
+
+  items_missing_abstract <- Filter(function(x) {
+    abs <- x$data$abstractNote
+    is.null(abs) || !nzchar(trimws(abs))
+  }, doi_items)
+
+  cat("4. Items that ALREADY have abstract: ", length(items_with_abstract), "\n")
+  cat("5. Items QUEUED for enrichment:      ", length(items_missing_abstract), "\n")
+  cat("======================\n\n")
+
+  # Print the keys and titles of the queued items to verify
+  if (length(items_missing_abstract) > 0) {
+    cat("Queued Items for Enrichment:\n")
+    for (item in items_missing_abstract) {
+      cat(sprintf("  - Key: %s | DOI: %s | Title: %s\n",
+                  item$key,
+                  extract_doi(item$data),
+                  substr(item$data$title %||% "[No Title]", 1, 35)))
+    }
+  } else {
+    cat("No items queued! Check if `force_overwrite = TRUE` is needed.\n")
+  }
+
+
 
   return(invisible(summary_stats))
 }
