@@ -6,9 +6,9 @@ library(DT)
 library(stringr)
 
 ui <- dashboardPage(
-  title = "Biblioview Portal", # <-- Sets the default HTML metadata title for the browser tab
+  title = "Biblioview Portal", # Default HTML metadata title for the browser tab
   dashboardHeader(
-    title = uiOutput("dynamic_title"), # <-- Dynamically renders the project name upper left
+    title = uiOutput("dynamic_title"), # Show the project name upper left
     titleWidth = 350
   ),
   dashboardSidebar(
@@ -149,31 +149,10 @@ server <- function(input, output, session) {
     return(df)
   }
 
-  # --- CENTRALIZED SCAN FUNCTION ---
-  # run_folder_scan <- function(target_group, target_key) {
-  #   withProgress(message = 'Scanning group folders...', value = 0.5, {
-  #     folders <- biblioview::fetch_zotero_collections(target_group, target_key)
-  #
-  #     if (length(folders) == 0) {
-  #       showNotification("No sub-folders found or invalid credentials. Showing root library by default.", type = "warning")
-  #       available_folders(c("All Folders (Root)" = "ROOT"))
-  #     } else {
-  #       # --- ALPHABETICAL SORTING ENGINE ---
-  #       # Sorts the named vector by its names (the human-readable titles)
-  #       if (!is.null(names(folders))) {
-  #         sorted_folders <- folders[order(names(folders))]
-  #       } else {
-  #         # Fallback if it's just a regular unnamed vector of strings
-  #         sorted_folders <- sort(folders)
-  #       }
-  #       available_folders(sorted_folders)
-  #     }
-  #   })
-  # }
 
   # ----------------------------------------------------------------------------
 
-  # --- HIERARCHICAL SIDEBAR SCAN INTERFACE ---
+  # Hierarchical Folder Scan interface
   run_folder_scan <- function(target_group, target_key, target_folder_names = NULL) {
     matched_keys <- NULL
 
@@ -389,6 +368,7 @@ server <- function(input, output, session) {
   output$polite_email_container <- renderUI({
     if (is.null(current_dataset())) return(NULL)
 
+    # Use environment variable or hard-code default email address on your server
     default_email <- Sys.getenv("POLITE_EMAIL")
 
     tagList(
@@ -427,10 +407,18 @@ server <- function(input, output, session) {
     req(current_dataset())
 
     showModal(modalDialog(
-      title = "Confirm Abstract Enrichment Operation",
-      span("Retrieving missing abstracts systematically queries external metadata endpoints item-by-item. This operational loop takes time and consumes shared server network resources."),
+      title = "Enrich Missing Abstracts?",
+      span(
+        "Fetching missing abstracts queries external services (like Crossref or OpenAlex) ",
+        "for each item. Depending on library size, this may take a moment."
+      ),
       br(), br(),
-      strong("Do you really want to proceed with enrichment?"),
+      span(
+        "💡 ", strong("Tip:"), " Providing an email address accesses the API's ",
+        em("Polite Pool"), ", which significantly speeds up retrieval and avoids rate limits."
+      ),
+      br(), br(),
+      strong("Would you like to proceed?"),
       footer = tagList(
         modalButton("Cancel"),
         actionButton("confirm_enrich_btn", "Yes, Proceed", class = "btn-warning")
@@ -456,68 +444,9 @@ server <- function(input, output, session) {
   output$bib_table <- renderDT({
     df <- current_dataset()
     req(df)
-    render_biblioview_table(current_dataset(), title = app_title(), show_buttons = TRUE)
-
-    # export_title <- if (app_title() != "") app_title() else "export"
-    # clean_filename <- gsub("[^a-zA-Z0-9_-]", "_", export_title)
-    #
-    # # 1. Format the data first so we use the exact structure sent to DT
-    # formatted_df <- biblioview::format_hyperlinks(df)
-    #
-    # # 2. Find column indices safely on formatted data
-    # abstract_col_idx <- which(tolower(names(formatted_df)) == "abstract")
-    # note_col_idx     <- which(tolower(names(formatted_df)) %in% c("note", "extra_note"))
-    #
-    # # 3. Apply standard substring clipping if column indices exist
-    # col_definitions <- list()
-    #
-    # if (length(abstract_col_idx) > 0 && !is.na(abstract_col_idx)) {
-    #   col_definitions[[length(col_definitions) + 1]] <- list(
-    #     targets = abstract_col_idx,
-    #     render = JS(
-    #       "function(data, type, row) {",
-    #       "  if (type === 'display' && data !== null && data.length > 90) {",
-    #       "    var cleanText = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
-    #       "    return '<span title=\"' + cleanText + '\">' + data.substring(0, 90) + '...</span>';",
-    #       "  }",
-    #       "  return data;",
-    #       "}"
-    #     )
-    #   )
-    # }
-    #
-    # if (length(note_col_idx) > 0 && !is.na(note_col_idx)) {
-    #   col_definitions[[length(col_definitions) + 1]] <- list(
-    #     targets = note_col_idx,
-    #     render = JS(
-    #       "function(data, type, row) {",
-    #       "  if (type === 'display' && data !== null && data.length > 60) {",
-    #       "    var cleanText = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
-    #       "    return '<span title=\"' + cleanText + '\">' + data.substring(0, 60) + '...</span>';",
-    #       "  }",
-    #       "  return data;",
-    #       "}"
-    #     )
-    #   )
-    # }
-    #
-    # datatable(
-    #   formatted_df,
-    #   escape = FALSE,
-    #   extensions = 'Buttons',
-    #   filter = "top",
-    #   options = list(
-    #     dom = 'Blfrtip',
-    #     buttons = list(
-    #       list(extend = 'copy', title = NULL),
-    #       list(extend = 'csv', filename = clean_filename, title = NULL),
-    #       list(extend = 'excel', filename = clean_filename, title = NULL)
-    #     ),
-    #     pageLength = 15,
-    #     lengthMenu = list(c(10, 15, 20, 50, 100, 200, -1), c('10', '15', '20', '50', '100', '200', 'All')),
-    #     columnDefs = col_definitions
-    #   )
-    # )
+    df |>
+      select(!Title) |>
+      render_biblioview_table(title = app_title(), show_buttons = TRUE)
   })
 
   output$status_text <- renderUI({
