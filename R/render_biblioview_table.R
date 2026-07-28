@@ -22,9 +22,9 @@ render_biblioview_table <- function(df, title = "export", show_buttons = TRUE) {
       targets = abstract_col_idx,
       render = DT::JS(
         "function(data, type, row) {",
-        "  if (type === 'display' && data !== null && data.length > 90) {",
+        "  if (type === 'display' && data !== null && data.length > 140) {",
         "    var cleanText = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
-        "    return '<span title=\"' + cleanText + '\">' + data.substring(0, 90) + '...</span>';",
+        "    return '<span title=\"' + cleanText + '\">' + data.substring(0, 140) + '...</span>';",
         "  }",
         "  return data;",
         "}"
@@ -38,9 +38,9 @@ render_biblioview_table <- function(df, title = "export", show_buttons = TRUE) {
       targets = note_col_idx,
       render = DT::JS(
         "function(data, type, row) {",
-        "  if (type === 'display' && data !== null && data.length > 60) {",
+        "  if (type === 'display' && data !== null && data.length > 90) {",
         "    var cleanText = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
-        "    return '<span title=\"' + cleanText + '\">' + data.substring(0, 60) + '...</span>';",
+        "    return '<span title=\"' + cleanText + '\">' + data.substring(0, 90) + '...</span>';",
         "  }",
         "  return data;",
         "}"
