@@ -1,23 +1,25 @@
-# Fetch Abstract from Europe PMC
+# Fetch Abstract from Europe PMC API
 
-Fetch Abstract from Europe PMC
+Queries Europe PMC for an article's abstract using its DOI. Requires
+`resultType = "core"` in the query parameters to ensure abstract text is
+included.
 
 ## Usage
 
 ``` r
-fetch_abstract_epmc(doi, req_template)
+fetch_abstract_epmc(encoded_doi, base_req)
 ```
 
 ## Arguments
 
-- doi:
+- encoded_doi:
 
-  Clean DOI string.
+  Character string. Clean or URL-encoded DOI.
 
-- req_template:
+- base_req:
 
-  httr2 base request.
+  An httr2 request object configured with user-agent/headers.
 
 ## Value
 
-Character string containing abstract or NULL if not found.
+Character string containing abstract text, or `NULL` if not found.

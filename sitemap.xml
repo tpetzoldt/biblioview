@@ -6,10 +6,14 @@
 <url><loc>https://tpetzoldt.github.io/biblioview/index.html</loc></url>
 <url><loc>https://tpetzoldt.github.io/biblioview/reference/biblioview-package.html</loc></url>
 <url><loc>https://tpetzoldt.github.io/biblioview/reference/build_base_req.html</loc></url>
+<url><loc>https://tpetzoldt.github.io/biblioview/reference/check_doi_abstracts.html</loc></url>
+<url><loc>https://tpetzoldt.github.io/biblioview/reference/clean_doi_string.html</loc></url>
 <url><loc>https://tpetzoldt.github.io/biblioview/reference/enrich_missing_abstracts.html</loc></url>
+<url><loc>https://tpetzoldt.github.io/biblioview/reference/extract_doi.html</loc></url>
 <url><loc>https://tpetzoldt.github.io/biblioview/reference/fetch_abstract_crossref.html</loc></url>
 <url><loc>https://tpetzoldt.github.io/biblioview/reference/fetch_abstract_epmc.html</loc></url>
 <url><loc>https://tpetzoldt.github.io/biblioview/reference/fetch_abstract_openalex.html</loc></url>
+<url><loc>https://tpetzoldt.github.io/biblioview/reference/fetch_abstract_semanticscholar.html</loc></url>
 <url><loc>https://tpetzoldt.github.io/biblioview/reference/fetch_all_zotero_data.html</loc></url>
 <url><loc>https://tpetzoldt.github.io/biblioview/reference/fetch_citation_counts.html</loc></url>
 <url><loc>https://tpetzoldt.github.io/biblioview/reference/fetch_collection_items.html</loc></url>

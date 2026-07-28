@@ -49,4 +49,5 @@ sync_missing_abstracts_to_zotero(
 
 ## Value
 
-A named list containing summary statistics of the sync operation.
+A named list containing summary statistics of the sync operation and
+details on any unresolvable items.

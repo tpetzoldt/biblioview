@@ -13,12 +13,12 @@ render_biblioview_table(df, title = "export", show_buttons = TRUE)
 
 - df:
 
-  Data frame containing reference entries
+  Data frame containing reference entries.
 
 - title:
 
-  Character. Export filename prefix
+  Character. Export filename prefix.
 
 - show_buttons:
 
-  Logical. Include Copy/CSV/Excel export buttons
+  Logical. Include Copy/CSV/Excel export buttons.

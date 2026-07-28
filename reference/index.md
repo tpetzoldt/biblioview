@@ -2,8 +2,22 @@
 
 ## All functions
 
+- [`check_doi_abstracts()`](https://tpetzoldt.github.io/biblioview/reference/check_doi_abstracts.md)
+  : Check Abstract Availability Across Providers for a Single DOI
+- [`clean_doi_string()`](https://tpetzoldt.github.io/biblioview/reference/clean_doi_string.md)
+  : Clean and Normalize DOI Strings
 - [`enrich_missing_abstracts()`](https://tpetzoldt.github.io/biblioview/reference/enrich_missing_abstracts.md)
   : Enrich Missing Abstracts from External Metadata APIs
+- [`extract_doi()`](https://tpetzoldt.github.io/biblioview/reference/extract_doi.md)
+  : Extract and Normalize DOI from Zotero Item Data
+- [`fetch_abstract_crossref()`](https://tpetzoldt.github.io/biblioview/reference/fetch_abstract_crossref.md)
+  : Fetch Abstract from Crossref
+- [`fetch_abstract_epmc()`](https://tpetzoldt.github.io/biblioview/reference/fetch_abstract_epmc.md)
+  : Fetch Abstract from Europe PMC API
+- [`fetch_abstract_openalex()`](https://tpetzoldt.github.io/biblioview/reference/fetch_abstract_openalex.md)
+  : Fetch Abstract from OpenAlex
+- [`fetch_abstract_semanticscholar()`](https://tpetzoldt.github.io/biblioview/reference/fetch_abstract_semanticscholar.md)
+  : Fetch Abstract from Semantic Scholar
 - [`fetch_all_zotero_data()`](https://tpetzoldt.github.io/biblioview/reference/fetch_all_zotero_data.md)
   : Fetch All Data from a Zotero Group Library
 - [`fetch_citation_counts()`](https://tpetzoldt.github.io/biblioview/reference/fetch_citation_counts.md)
