@@ -1,49 +1,3 @@
-#' Clean and Sanitize Abstract Text
-#'
-#' Strips or converts HTML/XML markup (like sub/sup tags and JATS math)
-#' into clean plain text for Zotero notes.
-#'
-#' @param text Character string containing raw abstract text.
-#' @return Cleaned character string.
-#' @keywords internal
-sanitize_abstract_text <- function(text) {
-  if (is.null(text) || !nzchar(text)) return(NULL)
-
-  clean <- text
-
-  # 1. Standardize line breaks and non-breaking spaces
-  clean <- gsub("\r\n|\r", "\n", clean)
-  clean <- gsub("&nbsp;", " ", clean, fixed = TRUE)
-
-  # 2. Handle XML/JATS math & formula tags before stripping HTML
-  clean <- gsub("<inline-formula>.*?</inline-formula>", "[formula]", clean, ignore.case = TRUE)
-  clean <- gsub("</?sub-script>", "", clean, ignore.case = TRUE)
-  clean <- gsub("</?super-script>", "", clean, ignore.case = TRUE)
-
-  # 3. Convert sub/sup tags to plain text (e.g., H<sub>2</sub>O -> H2O)
-  clean <- gsub("<sub>(.*?)</sub>", "\\1", clean, ignore.case = TRUE)
-  clean <- gsub("<sup>(.*?)</sup>", "\\1", clean, ignore.case = TRUE)
-
-  # 4. Strip any remaining HTML/XML tags safely
-  if (requireNamespace("rvest", quietly = TRUE)) {
-    clean <- tryCatch({
-      clean |>
-        xml2::read_html() |>
-        rvest::html_text2()
-    }, error = function(e) {
-      gsub("<[^>]+>", "", clean)
-    })
-  } else {
-    clean <- gsub("<[^>]+>", "", clean)
-  }
-
-  # 5. Clean up extra whitespace created by tag removal
-  clean <- gsub("[ \t]+", " ", clean)
-  clean <- trimws(clean)
-
-  return(clean)
-}
-
 #' Sync Missing Abstracts Back to Zotero API
 #'
 #' Scans a Zotero group library (or specific collections) for top-level items
@@ -80,9 +34,9 @@ sync_missing_abstracts_to_zotero <- function(group_id,
 
   target_collection_keys <- NULL
 
-  # 1. Resolve folder names to Collection Keys if specified
+  # 1. Resolve folder names AND subcollections to Collection Keys if specified
   if (!is.null(collections) && length(collections) > 0) {
-    cat("Resolving folder names to Zotero collection keys...\n")
+    cat("Resolving folder names and subcollections to Zotero collection keys...\n")
 
     coll_url <- paste0("https://api.zotero.org/groups/", group_id, "/collections")
     coll_req <- httr2::request(coll_url) |>
@@ -102,16 +56,19 @@ sync_missing_abstracts_to_zotero <- function(group_id,
                      paste(collections, collapse = ", ")))
       }
 
-      found_names <- sapply(matched_colls, function(x) x$data$name)
-      missing_names <- setdiff(collections, found_names)
+      # Gather target collection keys PLUS any subcollections under them
+      parent_keys <- sapply(matched_colls, function(x) x$key)
+      all_target_keys <- parent_keys
 
-      if (length(missing_names) > 0) {
-        warning(sprintf("The following folders were not found in Zotero and will be ignored: %s",
-                        paste(missing_names, collapse = ", ")))
+      # Include subcollections
+      for (coll in all_colls) {
+        if (!is.null(coll$data$parentCollection) && coll$data$parentCollection %in% parent_keys) {
+          all_target_keys <- c(all_target_keys, coll$key)
+        }
       }
 
-      target_collection_keys <- sapply(matched_colls, function(x) x$key)
-      cat(sprintf("✓ Scoping sync to folder(s): %s\n", paste(found_names, collapse = ", ")))
+      target_collection_keys <- unique(all_target_keys)
+      cat(sprintf("✓ Scoping sync to folder(s) + subfolders (%d keys matched)\n", length(target_collection_keys)))
     } else {
       stop("Failed to fetch collections from Zotero API. Check your permissions.")
     }
@@ -119,15 +76,15 @@ sync_missing_abstracts_to_zotero <- function(group_id,
 
   cat("Fetching library metadata from Zotero Group:", group_id, "...\n")
 
-  # 2. Fetch ALL top-level items with pagination loop
+  # 2. Fetch ALL top-level items using Zotero's Total-Results header
   all_items <- list()
   start_index <- 0
   limit <- 100
-  more_results <- TRUE
+  total_library_items <- Inf
 
   base_items_url <- paste0("https://api.zotero.org/groups/", group_id, "/items/top")
 
-  while (more_results) {
+  while (length(all_items) < total_library_items) {
     z_req <- httr2::request(base_items_url) |>
       httr2::req_headers(`Zotero-API-Key` = api_key) |>
       httr2::req_url_query(format = "json", limit = limit, start = start_index) |>
@@ -139,22 +96,29 @@ sync_missing_abstracts_to_zotero <- function(group_id,
       stop("Failed to connect to Zotero API. Check your Group ID and API key permissions.")
     }
 
-    batch <- httr2::resp_body_json(z_res, simplifyVector = FALSE)
-    all_items <- c(all_items, batch)
-
-    if (length(batch) < limit) {
-      more_results <- FALSE
-    } else {
-      start_index <- start_index + limit
+    # Extract Total-Results header from Zotero to know the exact total count
+    headers <- httr2::resp_headers(z_res)
+    if (!is.null(headers[["total-results"]])) {
+      total_library_items <- as.numeric(headers[["total-results"]])
     }
+
+    batch <- httr2::resp_body_json(z_res, simplifyVector = FALSE)
+
+    if (length(batch) == 0) break
+
+    all_items <- c(all_items, batch)
+    start_index <- start_index + length(batch)
+
+    cat(sprintf("  -> Fetched %d / %d items...\n", length(all_items), total_library_items))
   }
 
-  cat(sprintf("✓ Fetched %d total items across all pages.\n", length(all_items)))
+  cat(sprintf("✓ Successfully fetched all %d items across all pages.\n", length(all_items)))
 
-  # 3. Filter items by collection scope and valid DOIs
+  # 3. Filter items using the robust extract_doi() function
   valid_items <- Filter(function(x) {
     data <- x$data
-    has_doi <- !is.null(data$DOI) && nzchar(trimws(data$DOI))
+    doi  <- extract_doi(data)
+    has_valid_doi <- !is.null(doi)
 
     in_target_scope <- TRUE
     if (!is.null(target_collection_keys)) {
@@ -162,7 +126,7 @@ sync_missing_abstracts_to_zotero <- function(group_id,
       in_target_scope <- any(target_collection_keys %in% item_colls)
     }
 
-    return(has_doi && in_target_scope)
+    return(has_valid_doi && in_target_scope)
   }, all_items)
 
   total_records <- length(valid_items)

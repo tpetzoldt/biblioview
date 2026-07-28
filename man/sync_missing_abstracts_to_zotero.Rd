@@ -8,6 +8,7 @@ sync_missing_abstracts_to_zotero(
   group_id,
   api_key,
   collections = NULL,
+  force_overwrite = FALSE,
   email_contact = Sys.getenv("POLITE_EMAIL"),
   providers = list(epmc = fetch_abstract_epmc, crossref = fetch_abstract_crossref,
     openalex = fetch_abstract_openalex)
@@ -21,6 +22,9 @@ sync_missing_abstracts_to_zotero(
 \item{collections}{Character vector (optional). One or more Zotero folder/collection names.
 If NULL (default), scans the entire group library.}
 
+\item{force_overwrite}{Logical. If TRUE, re-fetches and overwrites pre-existing abstracts.
+Defaults to FALSE.}
+
 \item{email_contact}{Character. Contact email used for polite external API pools.
 Defaults to environment variable \code{POLITE_EMAIL}.}
 
@@ -31,5 +35,6 @@ A named list containing summary statistics of the sync operation.
 }
 \description{
 Scans a Zotero group library (or specific collections) for top-level items
-missing abstracts, fetches them from external APIs, and writes them back to Zotero.
+missing abstracts, fetches them from external APIs, sanitizes formatting,
+and writes them back to Zotero.
 }
