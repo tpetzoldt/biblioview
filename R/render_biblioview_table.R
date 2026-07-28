@@ -24,9 +24,9 @@ render_biblioview_table <- function(df, title = "export", show_buttons = TRUE) {
       targets = abstract_col_idx[1],
       render = DT::JS(
         "function(data, type, row) {",
-        "  if (type === 'display' && data !== null && data.length > 140) {",
+        "  if (type === 'display' && data !== null && data.length > 200) {",
         "    var cleanTooltip = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
-        "    return '<span class=\"expandable-cell\" title=\"' + cleanTooltip + '\" data-fulltext=\"' + encodeURIComponent(data) + '\" data-type=\"Note\" style=\"border-bottom: 1px dashed #6c757d; cursor: pointer;\">' + data.substring(0, 90) + '... &#x1F50D;</span>';",
+        "    return '<span class=\"expandable-cell\" title=\"' + cleanTooltip + '\" data-fulltext=\"' + encodeURIComponent(data) + '\" data-type=\"Note\" style=\"border-bottom: 1px dashed #6c757d; cursor: pointer;\">' + data.substring(0, 200) + '... &#x1F50D;</span>';",
         "  }",
         "  return data;",
         "}"
@@ -40,9 +40,9 @@ render_biblioview_table <- function(df, title = "export", show_buttons = TRUE) {
       targets = note_col_idx[1],
       render = DT::JS(
         "function(data, type, row) {",
-        "  if (type === 'display' && data !== null && data.length > 90) {",
+        "  if (type === 'display' && data !== null && data.length > 100) {",
         "    var cleanTooltip = data.replace(/\"/g, '&quot;').replace(/\\n/g, ' ');",
-        "    return '<span class=\"expandable-cell\" title=\"' + cleanTooltip + '\" data-fulltext=\"' + encodeURIComponent(data) + '\" data-type=\"Note\" style=\"border-bottom: 1px dashed #6c757d; cursor: pointer;\">' + data.substring(0, 90) + '... &#x1F50D;</span>';",
+        "    return '<span class=\"expandable-cell\" title=\"' + cleanTooltip + '\" data-fulltext=\"' + encodeURIComponent(data) + '\" data-type=\"Note\" style=\"border-bottom: 1px dashed #6c757d; cursor: pointer;\">' + data.substring(0, 150) + '... &#x1F50D;</span>';",
         "  }",
         "  return data;",
         "}"
