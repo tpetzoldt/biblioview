@@ -5,7 +5,12 @@ Enrich Missing Abstracts from External Metadata APIs
 ## Usage
 
 ``` r
-enrich_missing_abstracts(df, email_contact = Sys.getenv("POLITE_EMAIL"))
+enrich_missing_abstracts(
+  df,
+  email_contact = Sys.getenv("POLITE_EMAIL"),
+  providers = list(epmc = fetch_abstract_epmc, openalex = fetch_abstract_openalex,
+    crossref = fetch_abstract_crossref)
+)
 ```
 
 ## Arguments
@@ -16,5 +21,34 @@ enrich_missing_abstracts(df, email_contact = Sys.getenv("POLITE_EMAIL"))
 
 - email_contact:
 
-  Character. A valid email address used for the polite API pool.
-  Defaults to the environment variable `POLITE_EMAIL`.
+  Character. Valid email address for polite API pools. Defaults to the
+  environment variable `POLITE_EMAIL`.
+
+- providers:
+
+  Named list of provider fetcher functions executed in list order.
+  Defaults to Europe PMC -\> OpenAlex -\> Crossref.
+
+## Value
+
+Data frame with updated `Abstract` column where matches were found.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# Default usage (Europe PMC -> OpenAlex -> Crossref)
+df_enriched <- enrich_missing_abstracts(df = my_zotero_df)
+
+# Custom provider order: OpenAlex primary, Europe PMC secondary
+custom_order <- list(
+  openalex = fetch_abstract_openalex,
+  epmc     = fetch_abstract_epmc
+)
+
+df_enriched <- enrich_missing_abstracts(
+  df = my_zotero_df,
+  providers = custom_order
+)
+} # }
+```
