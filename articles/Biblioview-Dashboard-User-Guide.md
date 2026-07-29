@@ -1,4 +1,4 @@
-# User Guide: Exploring Literature with the biblioview Dashboard
+# 1. User Guide: Exploring Literature with the biblioview Dashboard
 
 This guide walks you through using the interactive **biblioview** Shiny
 dashboard to explore, enrich, and export literature collections from a
