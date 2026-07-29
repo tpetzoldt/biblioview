@@ -1,16 +1,13 @@
-# The biblioview Apps
-
-\*Note:\*\* This vignette is work in progress. It needs screenshots and
-adaptation to the most recent app versions.
+# The biblioview Apps: Overview and Setup
 
 ## Overview
 
-The `biblioview` package provides a lightweight, performant Shiny
-interface to display Zotero bibliographies in real time. Designed for
-embedding inside Learning Management Systems (LMS) like OPAL, project
-websites, or intranets, it allows research projects and course
-instructors to maintain a **single source of truth** in Zotero without
-requiring every student or collaborator to hold a Zotero account.
+The `biblioview` package provides a lightweight Shiny interface to
+display Zotero bibliographies in real time. Designed for embedding
+inside Learning Management Systems (LMS) like OPAL, project websites, or
+intranets, it allows research projects and course instructors to
+maintain a **single source of truth** in Zotero without requiring every
+student or collaborator to hold a Zotero account.
 
 ------------------------------------------------------------------------
 

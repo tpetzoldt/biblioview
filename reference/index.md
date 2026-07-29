@@ -24,6 +24,8 @@
   : Fetch Citation Counts from OpenAlex via Batch Queries
 - [`fetch_collection_items()`](https://tpetzoldt.github.io/biblioview/reference/fetch_collection_items.md)
   : Fetch All Items Within a Specific Zotero Collection
+- [`fetch_ris_from_crossref()`](https://tpetzoldt.github.io/biblioview/reference/fetch_ris_from_crossref.md)
+  : Fetch Bibliography Metadata in RIS Format from Crossref
 - [`fetch_zotero_collections()`](https://tpetzoldt.github.io/biblioview/reference/fetch_zotero_collections.md)
   : Fetch Sub-Folders (Collections) from a Zotero Group
 - [`format_hyperlinks()`](https://tpetzoldt.github.io/biblioview/reference/format_hyperlinks.md)
@@ -34,5 +36,7 @@
   : Create Standard Biblioview DataTable
 - [`sync_missing_abstracts_to_zotero()`](https://tpetzoldt.github.io/biblioview/reference/sync_missing_abstracts_to_zotero.md)
   : Sync Missing Abstracts Back to Zotero API
+- [`write_ris()`](https://tpetzoldt.github.io/biblioview/reference/write_ris.md)
+  : Export RIS Entries to File
 - [`zotero_to_apa()`](https://tpetzoldt.github.io/biblioview/reference/zotero_to_apa.md)
   : Convert Zotero Item Data to Simplified Plain-Text APA 7 Format

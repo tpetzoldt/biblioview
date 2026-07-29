@@ -3,21 +3,30 @@
 [biblioview](https://tpetzoldt.github.io/biblioview/) is an R package
 and interactive Shiny dashboard designed to streamline, enrich, and
 explore literature libraries directly from Zotero Group Libraries. It
-implements a resource-polite, multi-pass pipeline to pull base metadata,
-resolve missing abstracts, and track live citation metrics.
+implements a resource-polite pipeline to pull base metadata, resolve
+missing abstracts, and track live citation metrics.
 
 ## Key Features
 
-- **Selective Collection Mapping:** Scan and select specific
-  non-hierarchical sub-folders within your Zotero group library before
-  pulling data down.
+- **Selective Collection Mapping:** Scan and select specific collections
+  (sub-folders) within your Zotero group library before pulling data
+  down.
 - **Batch Citation Metrics:** Mass-queries the OpenAlex API in unified
   chunks of up to 50 items at once, populating up-to-date citation
   counts.
-- **Enrichment:** Automatically checks Crossref, OpenAlex and Europe PMC
-  via a fallback loop to patch missing abstract text.
+- **Enrichment:** Automatically check Crossref, OpenAlex and Europe PMC
+  via a fallback loop to patch missing abstract text. Separate function
+  to write retrieved abstracts back to your Zotero database.
 - **Sorting, Filtering and Export:** Retrieved libraries can be sorted,
   filtered and exported.
+- **DOI-RIS conversion:** Convenience functions to retrieve
+  bibliographies from a vector of DOIs. The resulting RIS file can then
+  be imported in Zotero.
+- **Shiny Apps:** The package contains two shiny apps, one with the
+  complete functionality and a restricted one for embedding via
+  `<iframe></iframe>` in other websites.
+- **URL Parameters:** Both apps support URL parameters for providing
+  group ID, API key, sub-collection folder and an optional title.
 
 ------------------------------------------------------------------------
 
@@ -84,11 +93,11 @@ raw_data <- fetch_all_zotero_data(
   collection_id = "collection_id"
 )
 
-# 2. Pull live batch metrics from OpenAlex
-final_dataset <- fetch_citation_counts(abstract_enriched, email_contact)
-
-# 3. Patch gaps in abstract listings
+# 2. Patch gaps in abstract listings
 abstract_enriched <- enrich_missing_abstracts(raw_data, email_contact)
+
+# 3. Pull live batch metrics from OpenAlex
+final_dataset <- fetch_citation_counts(abstract_enriched, email_contact)
 ```
 
 ------------------------------------------------------------------------
@@ -114,8 +123,8 @@ resources and keep UI performance snappy:
 
 ## Permanent Setting of Email Address
 
-Instead of entering your email address every time to the dashboard,
-consider to set a local system environment variable.
+Instead of entering your email address into the dashboard every time,
+you can set a system environment variable.
 
 Run the following command in your R console:
 
