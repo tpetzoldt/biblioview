@@ -107,6 +107,11 @@ Add your email address profile rule to the `.Renviron` file that opens up, then 
 POLITE_EMAIL="your.name@example.com"
 ```
 
+## Documentation
+
+User and developer documentation is provided at [Github Pages](https://tpetzoldt.github.io/biblioview/).
+
+
 ---
 
 ## License
