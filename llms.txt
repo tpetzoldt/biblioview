@@ -140,6 +140,11 @@ up, then restart your R session:
 POLITE_EMAIL="your.name@example.com"
 ```
 
+## Documentation
+
+User and developer documentation is provided at [Github
+Pages](https://tpetzoldt.github.io/biblioview/).
+
 ------------------------------------------------------------------------
 
 ## License
