@@ -17,3 +17,6 @@ The file path invisibly.
 \description{
 Writes a character vector of RIS records to a file.
 }
+\seealso{
+\code{\link[=fetch_ris_from_crossref]{fetch_ris_from_crossref()}}
+}

@@ -6,6 +6,7 @@
 #' @param file Path to the destination file.
 #'
 #' @return The file path invisibly.
+#' @seealso [fetch_ris_from_crossref()]
 #' @export
 write_ris <- function(ris_data, file) {
   if (length(ris_data) == 0) {
