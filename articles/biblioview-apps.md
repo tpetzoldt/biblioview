@@ -1,4 +1,10 @@
-# The biblioview Apps: Overview and Setup
+# 2. The biblioview Apps: Overview and Setup
+
+This guide introduces the interactive **biblioview** Shiny dashboard to
+share, explore and enrich literature collections from a Zotero Group
+Library.
+
+------------------------------------------------------------------------
 
 ## Overview
 

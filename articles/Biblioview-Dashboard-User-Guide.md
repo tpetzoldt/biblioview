@@ -4,6 +4,8 @@ This guide walks you through using the interactive **biblioview** Shiny
 dashboard to explore, enrich, and export literature collections from a
 Zotero Group Library.
 
+It assumes that you received a pre-configured dashboard link.
+
 ------------------------------------------------------------------------
 
 ## 1. Getting Started via App Link
@@ -13,17 +15,21 @@ When you open a pre-configured dashboard link (containing parameters for
 pre-selects your target collection. Please wait a little until retrieval
 of bibliographic entries from Zotero is finished.
 
-> 🔒 **Security Note on API Keys:** Your API key is passed directly in
-> the URL query string. Do not share or publish pre-configured links
-> publicly to keep your library access secure.
+> 🔒 **Security Note on API Keys:** The API key is passed directly in
+> the URL query string. It is essentially a password, so do not share or
+> publish pre-configured links publicly!
 
 ------------------------------------------------------------------------
+
+![](biblioview.png)
 
 ## 2. Exploring and Interacting with the Library
 
 Once your library loads into the main table, you have several
 interactive options:
 
+- **Enable Full Page View:** Click the Hamburger Menu (☰) to toggle the
+  control panel on and off.
 - **Adjust Table Density:** Use the entries selector at the top left to
   expand the number of displayed records per page (e.g., from 10 to 50
   or all rows).
