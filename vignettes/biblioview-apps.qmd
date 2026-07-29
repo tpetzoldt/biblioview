@@ -1,7 +1,7 @@
 ---
 title: "2. The biblioview Apps: Overview and Setup"
 vignette: >
-  %\VignetteIndexEntry{The biblioview Apps}
+  %\VignetteIndexEntry{2. The biblioview Apps: Overview and Setup}
   %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 format: 

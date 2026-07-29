@@ -1,8 +1,8 @@
 ---
-title: "User Guide: Exploring Literature with the biblioview Dashboard"
+title: "1. User Guide: Exploring Literature with the biblioview Dashboard"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{User Guide: Exploring Literature with the biblioview Dashboard}
+  %\VignetteIndexEntry{1. User Guide: Exploring Literature with the biblioview Dashboard}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 format: 
