@@ -196,9 +196,9 @@ This project is licensed under the GPL (\>= 2) License.
 
 # Articles
 
-### All vignettes
+### User Guides
 
 - [2. The biblioview Apps: Overview and
-  Setup](https://tpetzoldt.github.io/biblioview/articles/biblioview-apps.md):
+  Setup](https://tpetzoldt.github.io/biblioview/articles/biblioview-apps-overview-setup.md):
 - [1. User Guide: Exploring Literature with the biblioview
-  Dashboard](https://tpetzoldt.github.io/biblioview/articles/Biblioview-Dashboard-User-Guide.md):
+  Dashboard](https://tpetzoldt.github.io/biblioview/articles/biblioview-dashboard-user-guide.md):
