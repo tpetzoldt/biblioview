@@ -1,6 +1,6 @@
 Package: biblioview
 Title: A Shiny Web Portal and Abstract Enricher for Zotero Libraries
-Version: 0.5.8
+Version: 0.5.9
 Authors@R: person("Thomas", "Petzoldt", role = c("aut", "cre"),
                      email = "thomas.petzoldt@tu-dresden.de",
                      comment = c(ORCID = "0000-0002-4951-6468"))         
@@ -26,8 +26,8 @@ Config/roxygen2/version: 8.0.0
 URL: https://tpetzoldt.github.io/biblioview/
 Suggests: 
     knitr,
-    quarto,
     rmarkdown,
+    quarto,
     shinydashboard,
     stringr,
     memoise
