@@ -3,7 +3,7 @@ title: "1. User Guide: Exploring Literature with the biblioview Dashboard"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{1. User Guide: Exploring Literature with the biblioview Dashboard}
-  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 format: 
   html:

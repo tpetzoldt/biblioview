@@ -2,3 +2,9 @@ url: https://tpetzoldt.github.io/biblioview/
 
 template:
   bootstrap: 5
+
+articles:
+  - title: "User Guides"
+    contents:
+      - Biblioview-Dashboard-User-Guide
+      - Biblioview-Apps-Overview-Setup
