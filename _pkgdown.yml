@@ -6,5 +6,6 @@ template:
 articles:
   - title: "User Guides"
     contents:
-      - Biblioview-Dashboard-User-Guide
-      - Biblioview-Apps-Overview-Setup
+      - biblioview-apps-overview-setup
+      - biblioview-dashboard-user-guide
+      
