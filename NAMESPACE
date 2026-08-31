@@ -4,6 +4,7 @@ export(check_doi_abstracts)
 export(clean_doi_string)
 export(enrich_missing_abstracts)
 export(extract_doi)
+export(extract_zotero_year)
 export(fetch_abstract_crossref)
 export(fetch_abstract_epmc)
 export(fetch_abstract_openalex)
@@ -20,28 +21,40 @@ export(sync_missing_abstracts_to_zotero)
 export(write_ris)
 export(zotero_to_apa)
 import(httr2)
-importFrom(DT,JS)
-importFrom(DT,datatable)
-importFrom(dplyr,bind_rows)
-importFrom(dplyr,distinct)
-importFrom(dplyr,left_join)
-importFrom(dplyr,mutate)
-importFrom(dplyr,select)
-importFrom(httr,GET)
-importFrom(httr,add_headers)
-importFrom(httr,content)
-importFrom(httr,user_agent)
-importFrom(httr2,req_perform)
-importFrom(httr2,req_url)
-importFrom(httr2,req_url_query)
-importFrom(httr2,req_user_agent)
-importFrom(httr2,request)
-importFrom(httr2,resp_body_json)
+importFrom(DT,
+  JS,
+  datatable
+)
+importFrom(dplyr,
+  bind_rows,
+  distinct,
+  left_join,
+  mutate,
+  select
+)
+importFrom(httr,
+  GET,
+  add_headers,
+  content,
+  user_agent
+)
+importFrom(httr2,
+  req_perform,
+  req_url,
+  req_url_query,
+  req_user_agent,
+  request,
+  resp_body_json
+)
 importFrom(purrr,map_chr)
-importFrom(rvest,html_text)
-importFrom(rvest,read_html)
+importFrom(rvest,
+  html_text,
+  read_html
+)
 importFrom(shiny,shinyAppDir)
 importFrom(stats,setNames)
-importFrom(utils,URLdecode)
-importFrom(utils,URLencode)
+importFrom(utils,
+  URLdecode,
+  URLencode
+)
 importFrom(xml2,read_xml)

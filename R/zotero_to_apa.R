@@ -69,7 +69,13 @@ zotero_to_apa <- function(item) {
   # --------------------------------------------------------------------------
   # 2. Extract Metadata Fields
   # --------------------------------------------------------------------------
-  year     <- if (!is.null(d$date) && length(d$date) > 0) substr(d$date, 1, 4) else "n.d."
+  extracted_yr <- if (!is.null(d$date) && length(d$date) > 0)
+    extract_zotero_year(d$date)
+  else
+    NA_character_
+
+  year         <- if (!is.na(extracted_yr) && nchar(extracted_yr) > 0) extracted_yr else "n.d."
+
   title    <- safe_field(d$title, default = "Untitled")
   abstract <- safe_field(d$abstractNote, default = "")
   extra    <- safe_field(d$extra, default = "")
@@ -142,7 +148,6 @@ zotero_to_apa <- function(item) {
 
   doi_str <- if (doi != "") paste0("https://doi.org/", doi) else url_link
 
-  # Notice: formatted_title already contains its ending period/question mark!
   apa_citation <- paste0(authors_apa, " (", year, "). ", formatted_title)
   if (source_str != "") apa_citation <- paste0(apa_citation, " ", source_str, ".")
   if (doi_str != "")    apa_citation <- paste0(apa_citation, " ", doi_str)
