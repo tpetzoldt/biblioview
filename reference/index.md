@@ -10,6 +10,10 @@
   : Enrich Missing Abstracts from External Metadata APIs
 - [`extract_doi()`](https://tpetzoldt.github.io/biblioview/reference/extract_doi.md)
   : Extract and Normalize DOI from Zotero Item Data
+- [`extract_zotero_year()`](https://tpetzoldt.github.io/biblioview/reference/extract_zotero_year.md)
+  : Extract 4-Digit Year from Raw Zotero Date Fields safely
+- [`extract_zotero_year_extended()`](https://tpetzoldt.github.io/biblioview/reference/extract_zotero_year_extended.md)
+  : Extract Year from Zotero Date Fields (including BCE / Ancient Dates)
 - [`fetch_abstract_crossref()`](https://tpetzoldt.github.io/biblioview/reference/fetch_abstract_crossref.md)
   : Fetch Abstract from Crossref
 - [`fetch_abstract_epmc()`](https://tpetzoldt.github.io/biblioview/reference/fetch_abstract_epmc.md)

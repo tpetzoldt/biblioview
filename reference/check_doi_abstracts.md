@@ -56,7 +56,7 @@ check_doi_abstracts("10.1371/journal.pone.0146021")
 #>   epmc             : ✓ FOUND (912 characters)
 #>   crossref         : ✗ Not available / NULL
 #>   openalex         : ✓ FOUND (912 characters)
-#>   semanticscholar  : ✓ FOUND (912 characters)
+#>   semanticscholar  : ✗ Not available / NULL
 #> ====================================================
 #> 
 ```
